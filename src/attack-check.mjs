@@ -2,7 +2,7 @@
 // Never return tokens, private keys, real names, or note bodies.
 // 실제로 보낸 요청의 결과만 기록합니다. 심판의 판정이 아닙니다.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -16,6 +16,7 @@ export async function runAttackChecks(config) {
   if (typeof config.sampleMarker !== 'string' || !config.sampleMarker) throw new Error('가상 메모의 확인 표시를 넣어 주세요.');
   if (config.step === 2) return runStepTwoChecks(app, config);
   if (config.step === 3) return runStepThreeChecks(app, config);
+  if (config.step === 4) return runStepFourChecks(app, config);
   const response = await fetch(new URL('/data.json', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
   });
@@ -109,5 +110,29 @@ async function runStepThreeChecks(app, config) {
     { attackId: 'forged_token_list_notes', expected: '형식만 갖춘 가짜 토큰으로 GET /api/notes 요청은 401 JSON으로 거부',
       observed: `가짜 토큰으로 목록 조회: ${await attempt(notes, { method: 'GET',
         headers: { Authorization: `Bearer ${forgedToken(config)}` } })}` },
+  ];
+}
+
+// 4단계: B 소유의 공개 가능한 시험 메모(고정 id)를 대상으로, 계정 없이 할 수 있는 요청만 실제로 보냅니다.
+// A/B 교차 점검은 실제 계정 토큰이 필요하므로 자동으로 실행하지 않고 미실행으로 남깁니다.
+const B_TEST_NOTE_ID = 'b4b4b4b4-0000-4000-8000-00000000b004';
+
+async function runStepFourChecks(app, config) {
+  const notes = new URL('/api/notes', app);
+  const bNote = new URL(`/api/notes/${B_TEST_NOTE_ID}`, app);
+  const forged = { Authorization: `Bearer ${forgedToken(config)}` };
+  return [
+    { attackId: 'anonymous_list_notes', expected: '로그인 없이 GET /api/notes 요청은 401 JSON으로 거부',
+      observed: `로그인 없이 목록 조회: ${await attempt(notes, { method: 'GET' })}` },
+    { attackId: 'anonymous_read_other_note', expected: '로그인 없이 GET /api/notes/:id(B 시험 메모) 요청은 401 JSON으로 거부',
+      observed: `로그인 없이 B 시험 메모 조회: ${await attempt(bNote, { method: 'GET' })}` },
+    { attackId: 'anonymous_update_other_note', expected: '로그인 없이 PUT /api/notes/:id(B 시험 메모) 요청은 401 JSON으로 거부',
+      observed: `로그인 없이 B 시험 메모 수정: ${await attempt(bNote, { method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'attack-check 비로그인 수정 시도', body: '' }) })}` },
+    { attackId: 'forged_token_read_other_note', expected: '형식만 갖춘 가짜 토큰으로 GET /api/notes/:id(B 시험 메모) 요청은 401 JSON으로 거부',
+      observed: `가짜 토큰으로 B 시험 메모 조회: ${await attempt(bNote, { method: 'GET', headers: forged })}` },
+    { attackId: 'cross_owner_read_update_delete', expected: 'A 로그인 토큰으로 B 메모 GET·PUT·DELETE 요청은 모두 404로 거부',
+      observed: '미실행, 화면에서 직접 확인 (실제 계정의 비밀번호·토큰이 필요해 자동 점검하지 않음)' },
   ];
 }

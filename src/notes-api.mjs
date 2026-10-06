@@ -2,8 +2,8 @@
 // 서버 전용 키는 Vercel 환경변수에서만 읽고 응답·로그에 넣지 않습니다.
 // 로그인 여부는 src/verify-login.mjs가 확인한 사용자 ID로만 판단합니다.
 // 브라우저가 보낸 userId·role·owner_id는 읽지 않습니다.
-// 알려진 허점(4단계에서 고침): 한 건 GET·PUT·DELETE는 소유자를 검사하지 않아
-// 로그인한 B가 A의 메모 ID를 알면 읽고 고치고 지울 수 있습니다.
+// 4단계: 목록·한 건 조회·수정·삭제는 owner_id가 검증된 사용자 ID와 같은 행만 다루고,
+// 추가할 때는 검증된 사용자 ID를 owner_id로 저장합니다.
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import config from '../aleph.config.json' with { type: 'json' };
@@ -107,7 +107,9 @@ export async function handleCollection(request, response) {
   return send(response, 201, { id });
 }
 
-// GET·PUT·DELETE /api/notes/:id (아직 소유자 검사 없음)
+// GET·PUT·DELETE /api/notes/:id
+// 4단계: 모든 조회·수정·삭제에 owner_id = 검증된 사용자 ID 조건을 함께 겁니다.
+// 남의 메모와 없는 메모는 같은 404로 답해, 남의 메모가 있는지도 알려 주지 않습니다.
 export async function handleItem(request, response) {
   const login = await authenticate(request, response, ['GET', 'PUT', 'DELETE']);
   if (!login) return;
@@ -115,24 +117,34 @@ export async function handleItem(request, response) {
   if (typeof id !== 'string' || !UUID.test(id)) {
     return send(response, 400, { error: 'INVALID_ID', message: 'id는 UUID여야 합니다.' });
   }
+  const notFound = () => send(response, 404, { error: 'NOTE_NOT_FOUND' });
   if (request.method === 'GET') {
     const { data, error } = await supabase.from(TABLE).select('id, title, content')
-      .eq('id', id).maybeSingle();
+      .eq('id', id).eq('owner_id', login.userId).maybeSingle();
     if (error) return failed(response, error, '조회');
-    return data ? send(response, 200, toNote(data)) : send(response, 404, { error: 'NOTE_NOT_FOUND' });
+    return data ? send(response, 200, toNote(data)) : notFound();
   }
   if (request.method === 'PUT') {
     const input = readJson(request);
     if (!input) return send(response, 400, { error: 'INVALID_JSON' });
+    // 본문에서는 title·body만 읽습니다. owner_id가 들어 있어도 쓰지 않습니다.
     const fields = readNoteFields(input, response);
     if (!fields) return;
+    // 기존 행: owner_id 조건으로 본인 행만 바뀝니다. 새 행: owner_id를 바꾸지 않고, 결과로 한 번 더 확인합니다.
     const { data, error } = await supabase.from(TABLE)
       .update({ title: fields.title, content: fields.body })
-      .eq('id', id).select('id, title, content').maybeSingle();
+      .eq('id', id).eq('owner_id', login.userId)
+      .select('id, title, content, owner_id').maybeSingle();
     if (error) return failed(response, error, '수정');
-    return data ? send(response, 200, toNote(data)) : send(response, 404, { error: 'NOTE_NOT_FOUND' });
+    if (!data) return notFound();
+    if (data.owner_id !== login.userId) {
+      console.error('notes: 수정 결과의 소유자가 요청자와 다릅니다');
+      return send(response, 500, { error: 'OWNER_CHECK_FAILED' });
+    }
+    return send(response, 200, toNote(data));
   }
-  const { data, error } = await supabase.from(TABLE).delete().eq('id', id).select('id');
+  const { data, error } = await supabase.from(TABLE).delete()
+    .eq('id', id).eq('owner_id', login.userId).select('id');
   if (error) return failed(response, error, '삭제');
-  return data.length ? send(response, 200, { id }) : send(response, 404, { error: 'NOTE_NOT_FOUND' });
+  return data.length ? send(response, 200, { id }) : notFound();
 }
