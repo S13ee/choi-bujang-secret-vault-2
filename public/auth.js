@@ -1,8 +1,8 @@
-// 3단계: Supabase Auth 이메일·비밀번호 로그인·로그아웃과 가상 메모 추가·수정·삭제 화면입니다.
-// Project URL과 publishable key는 브라우저용 공개 값입니다. 서버 전용 키는 여기에 넣지 않습니다.
-// 비밀번호와 세션 토큰은 공식 SDK가 처리하며, 이 파일은 저장·출력하지 않습니다.
-const SUPABASE_URL = 'https://yldhutxatzstfanadlsg.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_XYiIMi_9LEfzyCiB16zeXQ_BGhkxIto';
+// 이메일·비밀번호 로그인·로그아웃과 가상 메모 추가·수정·삭제 화면입니다.
+// 5단계 보완: 이 파일은 Supabase를 직접 부르지 않습니다. 주소·키·SDK 없이
+// 이 사이트의 서버 함수 /api/auth/login·refresh·logout만 부릅니다.
+// access token은 메모리에만 두고, refresh token은 서버가 HttpOnly 쿠키로 다룹니다.
+// 비밀번호와 토큰은 저장·출력하지 않습니다.
 
 const form = document.querySelector('#login-form');
 const email = document.querySelector('#login-email');
@@ -17,15 +17,33 @@ const REASONS = {
   email_not_confirmed: '이메일 인증이 아직 끝나지 않았습니다.',
   user_banned: '사용이 중지된 계정입니다.',
   over_request_rate_limit: '로그인 시도가 너무 많습니다. 잠시 뒤 다시 시도하세요.',
+  validation_failed: '이메일과 비밀번호를 확인해 주세요.',
 };
 
+// 서버 함수가 돌려준 오류 코드(code)나 연결 실패를 화면 문장으로 바꿉니다.
 function reason(error) {
   const known = REASONS[error?.code];
   if (known) return `로그인 실패: ${known}`;
-  if (error?.name === 'AuthRetryableFetchError' || error instanceof TypeError) {
+  if (error instanceof TypeError) {
     return '로그인 실패: 로그인 서버에 연결하지 못했습니다. 네트워크를 확인하세요.';
   }
-  return `로그인 실패: ${error?.message || '알 수 없는 오류'}`;
+  if (error?.status === 429) return `로그인 실패: ${REASONS.over_request_rate_limit}`;
+  if (error?.status >= 500) return '로그인 실패: 로그인 서버에 문제가 있습니다. 잠시 뒤 다시 시도하세요.';
+  return `로그인 실패: ${error?.code ? `오류 코드 ${error.code}` : '알 수 없는 오류'}`;
+}
+
+// 로그인 서버 함수 호출. 성공하면 {accessToken, expiresAt, email}을 돌려줍니다.
+async function authCall(path, { body, token } = {}) {
+  const headers = {};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await fetch(path, {
+    method: 'POST', cache: 'no-store', credentials: 'same-origin', headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw Object.assign(new Error('auth'), { status: response.status, code: data?.code ?? null });
+  return data;
 }
 
 const list = document.querySelector('#notes');
@@ -50,12 +68,16 @@ const API_ERRORS = {
 };
 
 // 세션의 access token만 Authorization 헤더로 보냅니다. userId·role·owner_id는 보내지 않습니다.
-async function api(path, { method = 'GET', body } = {}) {
+// 401이면 서버 함수로 토큰을 한 번 갱신한 뒤 다시 보냅니다.
+async function api(path, { method = 'GET', body } = {}, retried = false) {
   const headers = { Authorization: `Bearer ${accessToken}` };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   const response = await fetch(path, {
     method, cache: 'no-store', headers, body: body === undefined ? undefined : JSON.stringify(body),
   });
+  if (response.status === 401 && !retried && await refreshSession()) {
+    return api(path, { method, body }, true);
+  }
   const data = await response.json().catch(() => null);
   if (!response.ok) throw new Error(API_ERRORS[response.status] ?? data?.message ?? `요청 실패 (HTTP ${response.status})`);
   return data;
@@ -170,54 +192,66 @@ noteForm.addEventListener('submit', async event => {
   }
 });
 
+// session: {accessToken, expiresAt, email} 또는 null
+let refreshTimer = null;
 function render(session) {
-  const user = session?.user;
-  const tokenChanged = accessToken !== (session?.access_token ?? null);
-  accessToken = session?.access_token ?? null;
-  form.hidden = Boolean(user);
-  signedIn.hidden = !user;
-  noteSection.hidden = !user;
-  signedInEmail.textContent = user?.email ?? '';
-  if (!user) noteMessage.textContent = '';
-  // 토큰 갱신만 있을 때는 수정 중인 화면을 지우지 않습니다.
-  if (tokenChanged && (!user || list.querySelector('.note-edit') === null)) {
-    showNotesMessage(user ? '가상 자료를 불러오는 중입니다.' : '');
+  const signed = Boolean(session?.accessToken);
+  const tokenChanged = accessToken !== (session?.accessToken ?? null);
+  const wasSigned = Boolean(accessToken);
+  accessToken = session?.accessToken ?? null;
+  form.hidden = signed;
+  signedIn.hidden = !signed;
+  noteSection.hidden = !signed;
+  if (signed) signedInEmail.textContent = session.email ?? '';
+  else { signedInEmail.textContent = ''; noteMessage.textContent = ''; }
+  // 만료 1분 전에 서버 함수로 토큰을 갱신합니다.
+  clearTimeout(refreshTimer);
+  if (signed && Number.isFinite(session.expiresAt)) {
+    const wait = Math.max(30, session.expiresAt - Math.floor(Date.now() / 1000) - 60) * 1000;
+    refreshTimer = setTimeout(refreshSession, Math.min(wait, 2 ** 31 - 1));
+  }
+  // 토큰 갱신만 있을 때는 목록을 다시 그리지 않아 수정 중인 화면을 지우지 않습니다.
+  if (tokenChanged && !(signed && wasSigned)) {
+    showNotesMessage(signed ? '가상 자료를 불러오는 중입니다.' : '');
     loadNotes();
   }
 }
 
-try {
-  const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm');
-  const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-
-  // INITIAL_SESSION·SIGNED_IN·TOKEN_REFRESHED·SIGNED_OUT마다 화면과 메모를 다시 맞춥니다.
-  supabase.auth.onAuthStateChange((_event, session) => render(session));
-
-  form.addEventListener('submit', async event => {
-    event.preventDefault();
-    message.textContent = '';
-    const button = form.querySelector('button');
-    button.disabled = true;
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: email.value.trim(), password: password.value,
-      });
-      if (error) message.textContent = reason(error);
-    } catch (error) {
-      message.textContent = reason(error);
-    } finally {
-      password.value = '';
-      button.disabled = false;
-    }
-  });
-
-  logout.addEventListener('click', async () => {
-    message.textContent = '';
-    const { error } = await supabase.auth.signOut();
-    if (error) message.textContent = `로그아웃 실패: ${error.message}`;
-  });
-} catch {
-  form.hidden = true;
-  message.textContent = '로그인 화면을 불러오지 못했습니다. 새로고침해 주세요.';
-  showNotesMessage('로그인 화면을 불러오지 못해 메모를 볼 수 없습니다.');
+let refreshing = null;
+async function refreshSession() {
+  refreshing ??= authCall('/api/auth/refresh')
+    .then(session => { render(session); return true; })
+    .catch(() => { render(null); return false; })
+    .finally(() => { refreshing = null; });
+  return refreshing;
 }
+
+form.addEventListener('submit', async event => {
+  event.preventDefault();
+  message.textContent = '';
+  const button = form.querySelector('button');
+  button.disabled = true;
+  try {
+    render(await authCall('/api/auth/login', { body: { email: email.value.trim(), password: password.value } }));
+  } catch (error) {
+    message.textContent = reason(error);
+  } finally {
+    password.value = '';
+    button.disabled = false;
+  }
+});
+
+logout.addEventListener('click', async () => {
+  message.textContent = '';
+  const token = accessToken;
+  render(null);
+  try {
+    await authCall('/api/auth/logout', { token });
+  } catch {
+    message.textContent = '로그아웃 요청이 서버에 닿지 않았습니다. 새로고침 후 다시 시도하세요.';
+  }
+});
+
+// 처음 열 때: HttpOnly 쿠키가 있으면 서버 함수가 새 access token을 돌려줍니다.
+showNotesMessage('로그인 상태를 확인하는 중입니다.');
+if (!(await refreshSession())) loadNotes();

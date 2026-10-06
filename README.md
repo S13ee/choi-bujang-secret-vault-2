@@ -93,6 +93,7 @@
 - **원본 자료 주소**: `aleph.config.json`의 `originalApiUrl`은 쿼리 없는 HTTPS 경로 `https://yldhutxatzstfanadlsg.supabase.co/rest/v1/byteback_vault_notes`(Supabase 테이블 API)입니다. 이 주소는 서버 함수만 서버 전용 키로 씁니다.
 - **`aleph.json`**: Vercel 빌드에서 계속 자동으로 만들어지고, 기존 항목(`schema`·`step`·`repoUrl`·`commit`·`publicAppUrl`·`judgeIssuer`·`sampleMarker`)에 더해 `aleph.config.json`의 `allowedRoutes`가 함께 들어갑니다(`scripts/deployment-identity.mjs`, 형식이 잘못된 경로는 빌드 실패).
 - **화면**: 상단 안내가 5단계 상태(메모는 서버 함수로만 읽고 쓰며, 자료 저장소 직접 접근은 닫힘)를 보여 줍니다.
+- **로그인도 서버 함수로**: 로그인·토큰 갱신·로그아웃은 `POST /api/auth/login`·`/api/auth/refresh`·`/api/auth/logout`(`src/auth-api.mjs`)이 Vercel 환경변수 `SUPABASE_URL`·`SUPABASE_PUBLISHABLE_KEY`로 처리하고, refresh token은 HttpOnly 쿠키로만 다루며, `public/` 화면 코드에는 Supabase 주소·공개 키·SDK가 없습니다.
 - **자기 점검** (`src/attack-check.mjs`, `step: 5`): 배포된 `/auth.js`에 이미 공개된 publishable key만 읽어 `originalApiUrl`을 직접 조회하고, 로그인 없이 `/api/notes`를 요청해 실제 결과만 기록합니다. 키·응답 본문은 남기지 않습니다. 로그인이 필요한 점검(로그인 토큰으로 원본 직접 조회, 서버 함수로 A의 목록·추가·수정·삭제)은 「미실행, 화면에서 직접 확인」으로 남깁니다. 학생의 자기 점검이며 심판 판정이 아닙니다.
 
 **`npm run test:package`:** 3개 모두 통과하지만, 운영 측 기준표가 새 함수를 인정했다는 뜻은 아닙니다. 이 테스트는 `api/` 맨 위의 `.js` 파일만 기준표와 비교하므로 하위 폴더 `api/notes/`의 함수를 보지 않습니다. 운영 측 파일(`package/baseline-functions.json`, `test/package-starter.test.mjs`)은 바꾸지 않았습니다.
