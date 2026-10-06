@@ -12,7 +12,7 @@
 
 ## 2단계: 자료를 코드 밖으로 옮김 (저장점)
 
-2단계 저장점 커밋은 `5c32482`입니다. 현재 상태는 아래 "4단계" 절을 보세요.
+2단계 저장점 커밋은 `5c32482`입니다. 현재 상태는 아래 "5단계" 절을 보세요.
 
 - 가상 메모는 Supabase 테이블 `byteback_vault_notes`에 있습니다. 테이블 생성·RLS·권한 SQL은 `supabase/byteback_vault_notes.sql`입니다. RLS가 켜져 있고 `anon`·`authenticated`에는 권한이 없습니다. 이 SQL은 이미 Supabase에서 실행했습니다.
 - 메모 네 건을 넣은 insert는 Git에서 제외된 로컬 전용 파일 `supabase/byteback_vault_notes.seed.local.sql`에만 있습니다(`.gitignore`의 `supabase/*.local.sql`). 저장소에는 메모 본문이 없으며, 이 insert는 이미 실행했으므로 다시 실행하면 메모가 중복됩니다.
@@ -51,7 +51,7 @@
 
 ## 3단계: 진짜 로그인을 붙임 (저장점)
 
-3단계 저장점 커밋은 `b596498`입니다. 현재 상태는 아래 "4단계" 절을 보세요.
+3단계 저장점 커밋은 `b596498`입니다. 현재 상태는 아래 "5단계" 절을 보세요.
 
 - **로그인 화면**: `public/auth.js`가 공식 `@supabase/supabase-js`(2.117.2)로 Supabase Auth 이메일·비밀번호 로그인·로그아웃을 처리합니다. 화면 코드에는 공개용 Project URL과 publishable key만 있습니다. 로그인에 실패하면 이유를 화면에 보여 주고, 로그인하면 입력 칸이 숨겨집니다.
 - **토큰 검사**: 자료 API는 `Authorization: Bearer <토큰>`을 시작 틀의 `src/verify-login.mjs`로 검사합니다. 브라우저가 보낸 `userId`·`role`·`owner_id`는 믿지 않습니다. 토큰이 없거나 검사에 실패하면 자료 없이 `401` JSON(`LOGIN_REQUIRED`)으로 거부합니다.
@@ -69,7 +69,7 @@
 
 ## 4단계: 로그인해도 내 자료만 보이게 함 (저장점)
 
-현재 단계는 `aleph.config.json`의 `step: 4`입니다. 저장소는 https://github.com/S13ee/choi-bujang-secret-vault-2 이고, 배포 주소는 https://choi-bujang-secret-vault-2-gray.vercel.app 입니다. `identityProvider`와 `allowedRoutes`(다섯 경로)는 3단계와 같습니다.
+4단계 저장점 커밋은 `458c61e`입니다. 현재 상태는 아래 "5단계" 절을 보세요.
 
 - **API 소유자 검사** (`src/notes-api.mjs`): 모든 읽기·추가·수정·삭제가 `src/verify-login.mjs`로 검증된 사용자 ID만 씁니다. URL·본문의 `owner_id`·`userId`·`role`은 읽지 않습니다.
   - 목록 `GET /api/notes`와 한 건 `GET /api/notes/:id`: `owner_id`가 본인인 행만
@@ -77,12 +77,23 @@
   - `PUT /api/notes/:id` `{title, body}`: 기존 행이 본인 것일 때만 바꾸고(`owner_id` 조건), `owner_id`는 바꾸지 않으며, 저장된 새 행의 소유자가 본인인지 다시 확인
   - `DELETE /api/notes/:id`: 본인 것만
   - 남의 메모와 없는 메모는 같은 `404`(`NOTE_NOT_FOUND`)로 답해 남의 메모가 있는지도 알려 주지 않습니다. 한 건 응답은 `{id,title,body}`입니다.
-- **DB 권한과 RLS** (`supabase/byteback_vault_notes_step4_rls.sql`, `public.byteback_vault_notes`만 대상): `PUBLIC`·`anon`·`authenticated`의 권한을 모두 회수한 뒤 `authenticated`에만 SELECT·INSERT·UPDATE·DELETE를 주고, 정책 네 개로 `auth.uid() = owner_id`일 때만 허용합니다(SELECT·DELETE는 USING, INSERT는 WITH CHECK, UPDATE는 USING과 WITH CHECK). `service_role` 권한은 그대로입니다. 학생이 SQL Editor에서 실행했고, 적용 후 `anon` 권한 없음, `authenticated`는 네 권한만, `service_role` 그대로, 정책 네 개인 것을 확인했습니다.
+- **DB 권한과 RLS** (`supabase/byteback_vault_notes_step4_rls.sql`, `public.byteback_vault_notes`만 대상): `PUBLIC`·`anon`·`authenticated`의 권한을 모두 회수한 뒤 `authenticated`에만 SELECT·INSERT·UPDATE·DELETE를 주고, 정책 네 개로 `auth.uid() = owner_id`일 때만 허용합니다(SELECT·DELETE는 USING, INSERT는 WITH CHECK, UPDATE는 USING과 WITH CHECK). `service_role` 권한은 그대로입니다. 학생이 SQL Editor에서 실행했고, 적용 후 `anon` 권한 없음, `authenticated`는 네 권한만, `service_role` 그대로, 정책 네 개인 것을 확인했습니다. **이때 준 `authenticated` 직접 권한은 5단계에서 거뒀습니다.**
   - 서버 함수는 `service_role`로 접근해 RLS를 우회하므로, API의 소유자 검사가 실제 보호선입니다. RLS는 로그인 사용자가 publishable key와 자기 토큰으로 테이블 API를 직접 부를 때 자기 행만 다루게 막습니다.
 - **시험 자료**: B 소유의 공개 가능한 시험 메모 한 건(고정 id `b4b4b4b4-0000-4000-8000-00000000b004`)과 기존 메모의 A 연결은 Git에서 제외된 로컬 전용 파일 `supabase/byteback_vault_notes_step4.local.sql`로 준비합니다(계정 이메일·메모 문장이 있어 저장소에는 없음).
 - **화면**: 상단 안내가 4단계 상태(남의 메모는 읽기·수정·삭제 모두 거부)를 보여 줍니다.
 - **`aleph.json`**: Vercel 빌드에서 계속 자동으로 만들어지고, `step: 4`가 들어갑니다.
 - **자기 점검** (`src/attack-check.mjs`, `step: 4`): 계정 없이 할 수 있는 요청만 배포 주소에 실제로 보내고 결과를 기록합니다. 로그인 없이 목록 조회, 로그인 없이 B 시험 메모 조회·수정, 형식만 갖춘 가짜 토큰으로 B 시험 메모 조회입니다. 실제 계정 토큰이 필요한 A/B 교차 점검(A 토큰으로 B 메모 GET·PUT·DELETE)은 「미실행, 화면에서 직접 확인」으로 남깁니다. 학생의 자기 점검이며 심판 판정이 아닙니다.
+
+## 5단계: 자료 요청을 서버 한곳으로 모음 (저장점)
+
+현재 단계는 `aleph.config.json`의 `step: 5`입니다. 저장소는 https://github.com/S13ee/choi-bujang-secret-vault-2 이고, 배포 주소는 https://choi-bujang-secret-vault-2-gray.vercel.app 입니다. `identityProvider`와 `allowedRoutes`(다섯 경로)는 4단계와 같습니다.
+
+- **서버 한곳**: 브라우저 코드(`public/`)가 Supabase를 부르는 곳은 로그인(Auth) 호출뿐이고, 메모 읽기·추가·수정·삭제는 모두 서버 함수 `/api/notes`, `/api/notes/:id`로만 합니다. 서버 함수의 로그인 검사(`src/verify-login.mjs`)·소유자 검사(`src/notes-api.mjs`)와 서버 전용 설정(`SUPABASE_SECRET_KEY`)은 그대로입니다.
+- **직접 권한 회수** (`supabase/byteback_vault_notes_step5_revoke.sql`, `public.byteback_vault_notes`만 대상): `REVOKE ALL ... FROM PUBLIC, anon, authenticated` 한 문장입니다. **4단계에서 `authenticated`에 준 SELECT·INSERT·UPDATE·DELETE 직접 권한을 5단계에서 거뒀습니다.** `service_role` 권한, RLS, 4단계 정책 네 개는 그대로입니다(권한이 없으니 정책은 다시 권한이 생길 때를 대비한 안전장치입니다). 학생이 SQL Editor에서 실행했고, `anon`·`authenticated`는 읽기·추가·수정·삭제 모두 false, `service_role`은 모두 true인 것을 확인했습니다.
+- **원본 자료 주소**: `aleph.config.json`의 `originalApiUrl`은 쿼리 없는 HTTPS 경로 `https://yldhutxatzstfanadlsg.supabase.co/rest/v1/byteback_vault_notes`(Supabase 테이블 API)입니다. 이 주소는 서버 함수만 서버 전용 키로 씁니다.
+- **`aleph.json`**: Vercel 빌드에서 계속 자동으로 만들어지고, 기존 항목(`schema`·`step`·`repoUrl`·`commit`·`publicAppUrl`·`judgeIssuer`·`sampleMarker`)에 더해 `aleph.config.json`의 `allowedRoutes`가 함께 들어갑니다(`scripts/deployment-identity.mjs`, 형식이 잘못된 경로는 빌드 실패).
+- **화면**: 상단 안내가 5단계 상태(메모는 서버 함수로만 읽고 쓰며, 자료 저장소 직접 접근은 닫힘)를 보여 줍니다.
+- **자기 점검** (`src/attack-check.mjs`, `step: 5`): 배포된 `/auth.js`에 이미 공개된 publishable key만 읽어 `originalApiUrl`을 직접 조회하고, 로그인 없이 `/api/notes`를 요청해 실제 결과만 기록합니다. 키·응답 본문은 남기지 않습니다. 로그인이 필요한 점검(로그인 토큰으로 원본 직접 조회, 서버 함수로 A의 목록·추가·수정·삭제)은 「미실행, 화면에서 직접 확인」으로 남깁니다. 학생의 자기 점검이며 심판 판정이 아닙니다.
 
 **`npm run test:package`:** 3개 모두 통과하지만, 운영 측 기준표가 새 함수를 인정했다는 뜻은 아닙니다. 이 테스트는 `api/` 맨 위의 `.js` 파일만 기준표와 비교하므로 하위 폴더 `api/notes/`의 함수를 보지 않습니다. 운영 측 파일(`package/baseline-functions.json`, `test/package-starter.test.mjs`)은 바꾸지 않았습니다.
 
@@ -94,7 +105,7 @@
 
 `aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 1단계에서는 자리표시자였고, 2단계 저장점에서 실제 저장소·배포 주소로 바꿨습니다. 2단계 이후 코딩 도구가 필요한 설정과 보호 기능을 단계별로 작성합니다. `npm run bundle`과 `bundle-notes.json`은 1단계의 세 걸음에는 포함되지 않습니다.
 
-로컬에서 빌드만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. 저장소의 `src/attack-check.mjs`는 실제 배포가 된 뒤 `aleph.config.json`의 `step`에 맞는 점검 요청을 보냅니다. 1단계는 `/data.json`의 공개 메모 확인 표시, 2단계는 `/data.json`과 비로그인 `/api/notes`, 3단계는 비로그인·가짜 토큰 요청의 거부 여부, 4단계는 비로그인·가짜 토큰으로 남의 메모를 요청했을 때의 거부 여부를 기록하고 A/B 교차 점검은 미실행으로 남깁니다.
+로컬에서 빌드만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. 저장소의 `src/attack-check.mjs`는 실제 배포가 된 뒤 `aleph.config.json`의 `step`에 맞는 점검 요청을 보냅니다. 1단계는 `/data.json`의 공개 메모 확인 표시, 2단계는 `/data.json`과 비로그인 `/api/notes`, 3단계는 비로그인·가짜 토큰 요청의 거부 여부, 4단계는 비로그인·가짜 토큰으로 남의 메모를 요청했을 때의 거부 여부를 기록하고 A/B 교차 점검은 미실행으로 남깁니다. 5단계는 공개 publishable key로 원본 자료 주소를 직접 조회했을 때와 비로그인 `/api/notes`의 거부 여부를 기록하고, 로그인이 필요한 점검은 미실행으로 남깁니다.
 
 ## 다음 단계의 코딩 도구에 전달할 규칙
 

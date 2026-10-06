@@ -2,7 +2,7 @@
 // Never return tokens, private keys, real names, or note bodies.
 // 실제로 보낸 요청의 결과만 기록합니다. 심판의 판정이 아닙니다.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -17,6 +17,7 @@ export async function runAttackChecks(config) {
   if (config.step === 2) return runStepTwoChecks(app, config);
   if (config.step === 3) return runStepThreeChecks(app, config);
   if (config.step === 4) return runStepFourChecks(app, config);
+  if (config.step === 5) return runStepFiveChecks(app, config);
   const response = await fetch(new URL('/data.json', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
   });
@@ -133,6 +134,57 @@ async function runStepFourChecks(app, config) {
     { attackId: 'forged_token_read_other_note', expected: '형식만 갖춘 가짜 토큰으로 GET /api/notes/:id(B 시험 메모) 요청은 401 JSON으로 거부',
       observed: `가짜 토큰으로 B 시험 메모 조회: ${await attempt(bNote, { method: 'GET', headers: forged })}` },
     { attackId: 'cross_owner_read_update_delete', expected: 'A 로그인 토큰으로 B 메모 GET·PUT·DELETE 요청은 모두 404로 거부',
+      observed: '미실행, 화면에서 직접 확인 (실제 계정의 비밀번호·토큰이 필요해 자동 점검하지 않음)' },
+  ];
+}
+
+// 5단계: 화면(/auth.js)에 이미 공개된 publishable key만 배포 주소에서 읽어 originalApiUrl을 직접 조회하고,
+// 로그인 없이 /api/notes를 요청합니다. 키·토큰·응답 본문은 결과에 남기지 않습니다.
+async function publishedKey(app) {
+  try {
+    const response = await fetch(new URL('/auth.js', app), { redirect: 'error', signal: AbortSignal.timeout(10000) });
+    if (!response.ok) return null;
+    return (await response.text()).match(/\bsb_publishable_[A-Za-z0-9_-]{12,200}\b/u)?.[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function directOriginalRead(config, key) {
+  let url;
+  try {
+    url = new URL(config.originalApiUrl);
+  } catch {
+    return '미실행 (aleph.config.json의 originalApiUrl이 올바른 주소가 아님)';
+  }
+  if (url.protocol !== 'https:' || url.search || url.hash) return '미실행 (originalApiUrl이 쿼리 없는 HTTPS 주소가 아님)';
+  if (!key) return '미실행 (배포된 /auth.js에서 publishable key를 찾지 못함)';
+  let response;
+  try {
+    response = await fetch(url, { redirect: 'error', signal: AbortSignal.timeout(10000),
+      headers: { apikey: key, Accept: 'application/json' } });
+  } catch (error) {
+    return `요청 실패 (${error.name})`;
+  }
+  let data = null;
+  try { data = await response.json(); } catch { /* JSON이 아니면 아래에 형식 없음으로 기록합니다. */ }
+  if (Array.isArray(data)) {
+    return `${data.length > 0 ? '메모가 보임' : '거부되지 않았으나 행 0건'} (HTTP ${response.status}, 행 ${data.length}건)`;
+  }
+  const code = typeof data?.code === 'string' ? `, 오류 코드 ${data.code.slice(0, 20)}` : '';
+  return response.ok ? `거부되지 않음 (HTTP ${response.status}${code})` : `거부됨, 메모 없음 (HTTP ${response.status}${code})`;
+}
+
+async function runStepFiveChecks(app, config) {
+  const key = await publishedKey(app);
+  return [
+    { attackId: 'original_api_direct_read', expected: '화면에 공개된 publishable key만으로 originalApiUrl을 직접 조회하면 메모 없이 거부',
+      observed: `공개 키로 원본 자료 직접 조회: ${await directOriginalRead(config, key)}` },
+    { attackId: 'anonymous_list_notes', expected: '로그인 없이 GET /api/notes 요청은 401 JSON으로 거부',
+      observed: `로그인 없이 목록 조회: ${await attempt(new URL('/api/notes', app), { method: 'GET' })}` },
+    { attackId: 'login_token_original_api_direct_read', expected: '로그인 사용자 토큰으로 originalApiUrl을 직접 조회해도 거부',
+      observed: '미실행, 화면에서 직접 확인 (실제 계정의 비밀번호·토큰이 필요해 자동 점검하지 않음)' },
+    { attackId: 'login_server_function_crud', expected: '로그인한 A는 서버 함수로 자기 메모 목록·추가·수정·삭제 가능, B 메모는 404',
       observed: '미실행, 화면에서 직접 확인 (실제 계정의 비밀번호·토큰이 필요해 자동 점검하지 않음)' },
   ];
 }
