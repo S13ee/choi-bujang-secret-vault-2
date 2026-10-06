@@ -24,14 +24,22 @@
     .auth button:disabled { opacity: .6; cursor: wait; }
     .auth-error { margin: 10px 0 0; color: #ffb4c0; font-size: 15px; }
     .auth-error:empty { display: none; }
+    .auth textarea, .note-edit input, .note-edit textarea { font: inherit; padding: 10px 12px; border: 1px solid #51667c; border-radius: 10px; background: #101a28; color: #ecf4ff; resize: vertical; }
+    .note-edit { display: grid; gap: 8px; }
+    .note-actions { display: flex; gap: 8px; margin-top: 12px; }
+    li button { font: inherit; font-size: 14px; padding: 6px 12px; border: 1px solid #51667c; border-radius: 8px; background: transparent; color: #ecf4ff; cursor: pointer; }
+    li button.danger { border-color: #d07384; color: #ffb4c0; }
+    li button:disabled { opacity: .6; cursor: wait; }
+    /* .auth form의 display: grid가 hidden 속성을 덮지 않게 합니다. */
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
   <main>
-    <div class="eyebrow">BYTE BACK · 1단계 피해 확인</div>
+    <div class="eyebrow">BYTE BACK · 3단계 로그인 보호</div>
     <h1>점령된 자료실</h1>
-    <p>지금은 보호 장치가 없는 상태입니다. 아래 기록은 모두 실습을 위해 만든 가상 자료입니다.</p>
-    <div class="notice">로그인하지 않은 방문자도 자료를 볼 수 있습니다. 공개 범위를 확인하고, 다음 제작 단계에서 접근을 차례로 막아 주세요.</div>
+    <p>로그인한 사용자만 메모를 볼 수 있습니다. 아래 기록은 모두 실습을 위해 만든 가상 자료입니다.</p>
+    <div class="notice">로그인하지 않은 방문자는 메모를 볼 수 없습니다. 다만 아직 소유자 검사가 없어, 로그인한 다른 사용자가 메모 ID를 알면 그 메모를 읽고 고치고 지울 수 있습니다. 이 허점은 다음 단계에서 막습니다.</div>
     <section class="auth" aria-label="로그인">
       <form id="login-form" hidden>
         <label>이메일 <input id="login-email" type="email" autocomplete="username" required></label>
@@ -43,6 +51,14 @@
         <button id="logout" type="button">로그아웃</button>
       </div>
       <p id="auth-error" class="auth-error" role="alert"></p>
+    </section>
+    <section id="note-section" class="auth" aria-label="메모 추가" hidden>
+      <form id="note-form">
+        <label>제목 <input id="note-title" type="text" maxlength="200" required></label>
+        <label>내용 <textarea id="note-body" rows="3" maxlength="5000"></textarea></label>
+        <button type="submit">가상 메모 추가</button>
+      </form>
+      <p id="note-error" class="auth-error" role="alert"></p>
     </section>
     <ul id="notes" aria-live="polite"><li>가상 자료를 불러오는 중입니다.</li></ul>
   </main>
