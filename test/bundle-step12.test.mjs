@@ -59,14 +59,25 @@ test('step 12 점검은 공개 HTTPS 주소에 GET·HEAD만 보낸다', async ()
 });
 
 test('npm run bundle이 불러오는 파일은 허용된 node: 모듈만 import한다', () => {
-  const files = ['../scripts/bundle.mjs', '../src/decider.mjs', '../src/attack-check.mjs'];
-  for (const file of files) {
-    const source = readFileSync(new URL(file, import.meta.url), 'utf8');
+  // 프로젝트 안의 상대 경로 파일(./ops-catalog.mjs 등)은 따라가서 그 파일의 import도 같은 규칙으로 검사합니다.
+  const queue = ['../scripts/bundle.mjs', '../src/decider.mjs', '../src/attack-check.mjs'].map(file => new URL(file, import.meta.url));
+  const seen = new Set();
+  while (queue.length) {
+    const fileUrl = queue.shift();
+    if (seen.has(fileUrl.href)) continue;
+    seen.add(fileUrl.href);
+    const source = readFileSync(fileUrl, 'utf8');
     const specifiers = [...source.matchAll(/^\s*import\s[^'"]*['"]([^'"]+)['"]/gmu)].map(match => match[1]);
     for (const specifier of specifiers) {
-      assert.ok(ALLOWED_MODULES.includes(specifier), `${file}: ${specifier}`);
+      if (specifier.startsWith('./') || specifier.startsWith('../')) {
+        assert.match(specifier, /\.mjs$/u, `${fileUrl.pathname}: ${specifier}`);
+        queue.push(new URL(specifier, fileUrl));
+      } else {
+        assert.ok(ALLOWED_MODULES.includes(specifier), `${fileUrl.pathname}: ${specifier}`);
+      }
     }
   }
+  assert.ok([...seen].some(href => href.endsWith('/src/ops-catalog.mjs')), '시험 목록 파일도 검사함');
 });
 
 test('node:crypto가 randomUUID와 sha256 hex만 될 때도 step 12 점검이 끝까지 돈다', async () => {

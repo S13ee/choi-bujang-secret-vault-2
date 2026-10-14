@@ -3,6 +3,7 @@
 // 실제로 보낸 요청의 결과만 기록합니다. 심판의 판정이 아닙니다.
 // 12단계: 심판 격리 환경에서는 node:fs·node:path·node:url·node:child_process·node:crypto만 쓸 수 있어 step 12 점검은 node:crypto만 씁니다.
 import { createHash, randomUUID } from 'node:crypto';
+import { OPS_CATALOG } from './ops-catalog.mjs';
 
 export async function runAttackChecks(config) {
   if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
@@ -371,32 +372,17 @@ function originalApiTarget(config) {
   }
 }
 
+// 12단계 점검은 src/ops-catalog.mjs의 bundle 항목(18개)을 목록 순서대로 씁니다. 로그인 없음·가짜 토큰 항목만 한 번씩 보내고,
+// 로그인·기기 서명·쓰기·엔진이 필요한 항목은 보내지 않고 "not_run"입니다. expected는 목록 문장 그대로입니다.
 async function runStepTwelveChecks(app, config) {
-  const bNote = new URL(`/api/notes/${B_TEST_NOTE_ID}`, app);
-  const original = originalApiTarget(config);
-  const traced = async (attackId, expected, url, options) => ({ attackId, expected,
-    observed: url ? await tracedRequest(attackId, url, options) : NOT_RUN });
-  return [
-    await traced('original_api_direct_read', '키·토큰 없이 originalApiUrl을 직접 GET하면 메모 없이 거부',
-      original, { headers: { Accept: 'application/json' } }),
-    await traced('anonymous_list_notes', '로그인 없이 GET /api/notes 요청은 401 JSON으로 거부', new URL('/api/notes', app)),
-    await traced('anonymous_read_other_note', '로그인 없이 GET /api/notes/:id(B 시험 메모) 요청은 401 JSON으로 거부', bNote),
-    await traced('forged_token_read_other_note', '형식만 갖춘 가짜 토큰으로 GET /api/notes/:id(B 시험 메모) 요청은 401 JSON으로 거부',
-      bNote, { headers: { Authorization: `Bearer ${readOnlyForgedToken(config)}` } }),
-    await traced('query_appended_note_read', '쿼리를 붙인 GET /api/notes/:id?x=1(로그인 없음)도 401 JSON으로 거부',
-      new URL(`/api/notes/${B_TEST_NOTE_ID}?x=1`, app)),
-    await traced('anonymous_list_notices', '로그인 없이 GET /api/notices 요청은 401 JSON으로 거부', new URL('/api/notices', app)),
-    await traced('anonymous_device_status', '로그인 없이 GET /api/devices/status 요청은 401 JSON으로 거부', new URL('/api/devices/status', app)),
-    await traced('public_data_json_head', '공개 /data.json은 없어야 함(HEAD 요청, 404 기대)', new URL('/data.json', app), { method: 'HEAD' }),
-    { attackId: 'anonymous_create_note', expected: '로그인 없이 POST /api/notes는 401이어야 함. 쓰기 요청이라 제출 묶음에서는 보내지 않음', observed: NOT_RUN },
-    { attackId: 'anonymous_admin_notice_update', expected: '로그인 없이 PUT /api/admin/notices/:id는 401이어야 함. 쓰기 요청이라 제출 묶음에서는 보내지 않음', observed: NOT_RUN },
-    { attackId: 'anonymous_note_restore', expected: '로그인 없이 POST /api/notes/:id/restore는 401이어야 함. 쓰기 요청이라 제출 묶음에서는 보내지 않음', observed: NOT_RUN },
-    { attackId: 'login_token_original_api_direct_read', expected: '로그인 사용자 토큰으로 originalApiUrl 직접 조회도 거부. 실제 계정 토큰이 필요해 보내지 않음', observed: NOT_RUN },
-    { attackId: 'cross_owner_access', expected: 'A가 B 메모 GET·PUT·DELETE·복구는 404, 메모·공지 id 교차도 404. 실제 계정 토큰과 기기 서명이 필요해 보내지 않음', observed: NOT_RUN },
-    { attackId: 'student_admin_notice_update', expected: '강사 목록에 없는 학생의 관리 경로 수정은 403 NOT_INSTRUCTOR. 로그인과 쓰기 요청이 필요해 보내지 않음', observed: NOT_RUN },
-    { attackId: 'unapproved_device_data', expected: '승인되지 않은 기기의 보호 자료 요청은 403 DEVICE_NOT_APPROVED. 실제 계정 토큰과 브라우저 기기 키가 필요해 보내지 않음', observed: NOT_RUN },
-    { attackId: 'unregistered_device_access', expected: '미등록 기기의 자료실 요청은 deny·device_not_registered. 엔진과 심판이 필요해 보내지 않음', observed: NOT_RUN },
-    { attackId: 'unusual_access_before_step_up', expected: '평소와 다른 접속은 재인증 전 step_up. 엔진이 필요해 보내지 않음', observed: NOT_RUN },
-    { attackId: 'burst_read_revocation', expected: '10분 안에 GET 121건 이상이면 burst_read 회수. 엔진과 심판이 필요하고 다량 요청이라 보내지 않음', observed: NOT_RUN },
-  ];
+  const out = [];
+  for (const row of OPS_CATALOG.filter(item => item.bundle)) {
+    const run = row.run && ['none', 'forged'].includes(row.run.auth) ? row.run : null;
+    const url = !run ? null : run.target === 'original' ? originalApiTarget(config) : new URL(run.path, app);
+    const headers = !run ? {} : run.target === 'original' ? { Accept: 'application/json' }
+      : run.auth === 'forged' ? { Authorization: `Bearer ${readOnlyForgedToken(config)}` } : {};
+    out.push({ attackId: row.attackId, expected: row.expected,
+      observed: url ? await tracedRequest(row.attackId, url, { method: run.method, headers }) : NOT_RUN });
+  }
+  return out;
 }

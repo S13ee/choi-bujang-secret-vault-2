@@ -1,0 +1,101 @@
+// 12단계: 1~11단계 정상·금지 요청의 시험 목록(한 곳). import가 없는 순수 데이터입니다.
+// - npm run bundle의 step 12 점검(src/attack-check.mjs), 기록표 명령(npm run ops:record), 작전실 화면(public/ops-catalog.js 사본)이
+//   모두 이 목록을 씁니다. 그래서 attackId·기대 결과·실행할 요청이 세 곳에서 같습니다.
+// - 항목은 저장소에 근거가 있는 것만 넣었습니다(README 재확인 표, 각 단계 자기 점검, 8·11단계 기록). 개수는 이 목록의 길이 그대로이며 늘려 채우지 않습니다.
+// - run: 보낼 수 있는 읽기 요청(GET·HEAD만). auth는 none(로그인 없음)·forged(형식만 갖춘 가짜 토큰)·device(로그인 + 승인된 기기 서명, 작전실 화면에서만).
+//   run이 null이면 보내지 않는 항목이고, 이유는 notRunReason에 있습니다.
+// - bundle: true인 18개가 제출 묶음 step 12 점검이며, 이 순서와 expected 문장이 묶음 결과에 그대로 쓰입니다.
+// - expectStatus: 실제 응답 상태와 비교할 기대 상태 코드. 결과를 추정해 채우는 데 쓰지 않습니다.
+// 토큰·비밀번호·메모 본문·개인정보는 들어 있지 않습니다. 고정 id는 공개 가능한 가상 시험 자료입니다.
+
+const B_TEST_NOTE = 'b4b4b4b4-0000-4000-8000-00000000b004';
+const TEST_NOTICE = 'c8c8c8c8-0000-4000-8000-00000000c008';
+const WRITE = '쓰기 요청이라 보내지 않음(GET·HEAD만)';
+
+export const OPS_CATALOG = Object.freeze([
+  // --- 제출 묶음 step 12 점검 18개(순서·문장 고정) ---
+  { attackId: 'original_api_direct_read', step: 5, kind: 'forbidden', bundle: true,
+    expected: '키·토큰 없이 originalApiUrl을 직접 GET하면 메모 없이 거부',
+    run: { method: 'GET', target: 'original', path: null, auth: 'none' }, expectStatus: [401], notRunReason: null },
+  { attackId: 'anonymous_list_notes', step: 3, kind: 'forbidden', bundle: true,
+    expected: '로그인 없이 GET /api/notes 요청은 401 JSON으로 거부',
+    run: { method: 'GET', target: 'app', path: '/api/notes', auth: 'none' }, expectStatus: [401], notRunReason: null },
+  { attackId: 'anonymous_read_other_note', step: 4, kind: 'forbidden', bundle: true,
+    expected: '로그인 없이 GET /api/notes/:id(B 시험 메모) 요청은 401 JSON으로 거부',
+    run: { method: 'GET', target: 'app', path: `/api/notes/${B_TEST_NOTE}`, auth: 'none' }, expectStatus: [401], notRunReason: null },
+  { attackId: 'forged_token_read_other_note', step: 4, kind: 'forbidden', bundle: true,
+    expected: '형식만 갖춘 가짜 토큰으로 GET /api/notes/:id(B 시험 메모) 요청은 401 JSON으로 거부',
+    run: { method: 'GET', target: 'app', path: `/api/notes/${B_TEST_NOTE}`, auth: 'forged' }, expectStatus: [401], notRunReason: null },
+  { attackId: 'query_appended_note_read', step: 8, kind: 'forbidden', bundle: true,
+    expected: '쿼리를 붙인 GET /api/notes/:id?x=1(로그인 없음)도 401 JSON으로 거부',
+    run: { method: 'GET', target: 'app', path: `/api/notes/${B_TEST_NOTE}?x=1`, auth: 'none' }, expectStatus: [401], notRunReason: null },
+  { attackId: 'anonymous_list_notices', step: 8, kind: 'forbidden', bundle: true,
+    expected: '로그인 없이 GET /api/notices 요청은 401 JSON으로 거부',
+    run: { method: 'GET', target: 'app', path: '/api/notices', auth: 'none' }, expectStatus: [401], notRunReason: null },
+  { attackId: 'anonymous_device_status', step: 11, kind: 'forbidden', bundle: true,
+    expected: '로그인 없이 GET /api/devices/status 요청은 401 JSON으로 거부',
+    run: { method: 'GET', target: 'app', path: '/api/devices/status', auth: 'none' }, expectStatus: [401], notRunReason: null },
+  { attackId: 'public_data_json_head', step: 2, kind: 'forbidden', bundle: true,
+    expected: '공개 /data.json은 없어야 함(HEAD 요청, 404 기대)',
+    run: { method: 'HEAD', target: 'app', path: '/data.json', auth: 'none' }, expectStatus: [404], notRunReason: null },
+  { attackId: 'anonymous_create_note', step: 3, kind: 'forbidden', bundle: true,
+    expected: '로그인 없이 POST /api/notes는 401이어야 함. 쓰기 요청이라 제출 묶음에서는 보내지 않음',
+    run: null, expectStatus: [401], notRunReason: WRITE },
+  { attackId: 'anonymous_admin_notice_update', step: 8, kind: 'forbidden', bundle: true,
+    expected: '로그인 없이 PUT /api/admin/notices/:id는 401이어야 함. 쓰기 요청이라 제출 묶음에서는 보내지 않음',
+    run: null, expectStatus: [401], notRunReason: WRITE },
+  { attackId: 'anonymous_note_restore', step: 10, kind: 'forbidden', bundle: true,
+    expected: '로그인 없이 POST /api/notes/:id/restore는 401이어야 함. 쓰기 요청이라 제출 묶음에서는 보내지 않음',
+    run: null, expectStatus: [401], notRunReason: WRITE },
+  { attackId: 'login_token_original_api_direct_read', step: 5, kind: 'forbidden', bundle: true,
+    expected: '로그인 사용자 토큰으로 originalApiUrl 직접 조회도 거부. 실제 계정 토큰이 필요해 보내지 않음',
+    run: null, expectStatus: null, notRunReason: '원본 API에 실제 계정 토큰을 보내야 해 보내지 않음' },
+  { attackId: 'cross_owner_access', step: 4, kind: 'forbidden', bundle: true,
+    expected: 'A가 B 메모 GET·PUT·DELETE·복구는 404, 메모·공지 id 교차도 404. 실제 계정 토큰과 기기 서명이 필요해 보내지 않음',
+    run: null, expectStatus: [404], notRunReason: 'A·B 두 실제 계정과 쓰기 요청이 필요해 보내지 않음' },
+  { attackId: 'student_admin_notice_update', step: 8, kind: 'forbidden', bundle: true,
+    expected: '강사 목록에 없는 학생의 관리 경로 수정은 403 NOT_INSTRUCTOR. 로그인과 쓰기 요청이 필요해 보내지 않음',
+    run: null, expectStatus: [403], notRunReason: WRITE },
+  { attackId: 'unapproved_device_data', step: 11, kind: 'forbidden', bundle: true,
+    expected: '승인되지 않은 기기의 보호 자료 요청은 403 DEVICE_NOT_APPROVED. 실제 계정 토큰과 브라우저 기기 키가 필요해 보내지 않음',
+    run: null, expectStatus: [403], notRunReason: '승인되지 않은 별도 기기가 필요해 보내지 않음' },
+  { attackId: 'unregistered_device_access', step: 6, kind: 'forbidden', bundle: true,
+    expected: '미등록 기기의 자료실 요청은 deny·device_not_registered. 엔진과 심판이 필요해 보내지 않음',
+    run: null, expectStatus: null, notRunReason: 'ALEPH SDP 엔진과 심판이 필요해 보내지 않음' },
+  { attackId: 'unusual_access_before_step_up', step: 7, kind: 'forbidden', bundle: true,
+    expected: '평소와 다른 접속은 재인증 전 step_up. 엔진이 필요해 보내지 않음',
+    run: null, expectStatus: null, notRunReason: 'ALEPH SDP 엔진이 필요해 보내지 않음' },
+  { attackId: 'burst_read_revocation', step: 9, kind: 'forbidden', bundle: true,
+    expected: '10분 안에 GET 121건 이상이면 burst_read 회수. 엔진과 심판이 필요하고 다량 요청이라 보내지 않음',
+    run: null, expectStatus: null, notRunReason: 'ALEPH SDP 엔진·심판과 다량 요청이 필요해 보내지 않음' },
+
+  // --- 작전실 화면에서만 실행하거나(로그인 + 승인된 기기 서명) 보내지 않는 항목 ---
+  { attackId: 'home_page_load', step: 1, kind: 'normal', bundle: false,
+    expected: '로그인 없이 GET /는 200, 자료실 화면',
+    run: { method: 'GET', target: 'app', path: '/', auth: 'none' }, expectStatus: [200], notRunReason: null },
+  { attackId: 'own_list_notes', step: 3, kind: 'normal', bundle: false,
+    expected: '로그인 + 승인된 기기 서명으로 GET /api/notes는 200, 내 메모만',
+    run: { method: 'GET', target: 'app', path: '/api/notes', auth: 'device' }, expectStatus: [200], notRunReason: null },
+  { attackId: 'own_note_read', step: 4, kind: 'normal', bundle: false,
+    expected: '로그인 + 승인된 기기 서명으로 내 메모 한 건 GET /api/notes/:id는 200',
+    run: { method: 'GET', target: 'app', path: '/api/notes/:ownNoteId', auth: 'device' }, expectStatus: [200], notRunReason: null },
+  { attackId: 'server_function_crud', step: 5, kind: 'normal', bundle: false,
+    expected: '로그인한 사용자는 서버 함수로 메모 추가·수정·삭제',
+    run: null, expectStatus: null, notRunReason: WRITE },
+  { attackId: 'own_notice_list', step: 8, kind: 'normal', bundle: false,
+    expected: '로그인 + 승인된 기기 서명으로 GET /api/notices는 200',
+    run: { method: 'GET', target: 'app', path: '/api/notices', auth: 'device' }, expectStatus: [200], notRunReason: null },
+  { attackId: 'notice_item_read', step: 8, kind: 'normal', bundle: false,
+    expected: '로그인 + 승인된 기기 서명으로 시험 공지 GET /api/notices/:id는 200',
+    run: { method: 'GET', target: 'app', path: `/api/notices/${TEST_NOTICE}`, auth: 'device' }, expectStatus: [200], notRunReason: null },
+  { attackId: 'notice_write_rejected', step: 8, kind: 'forbidden', bundle: false,
+    expected: '일반 공지 경로 PUT /api/notices/:id는 누구에게나 405',
+    run: null, expectStatus: [405], notRunReason: WRITE },
+  { attackId: 'owner_note_restore', step: 10, kind: 'normal', bundle: false,
+    expected: '고친 내 메모를 POST /api/notes/:id/restore로 복구하면 200, 처음 만든 내용',
+    run: null, expectStatus: [200], notRunReason: WRITE },
+  { attackId: 'own_device_status', step: 11, kind: 'normal', bundle: false,
+    expected: '로그인 + 승인된 기기 서명으로 GET /api/devices/status는 200, approved true',
+    run: { method: 'GET', target: 'app', path: '/api/devices/status', auth: 'device' }, expectStatus: [200], notRunReason: null },
+].map(row => Object.freeze({ ...row, run: row.run ? Object.freeze({ ...row.run }) : null,
+  expectStatus: row.expectStatus ? Object.freeze([...row.expectStatus]) : null })));
