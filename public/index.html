@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BYTE BACK | 점령된 자료실</title>
+  <!-- 11단계: 설치형 웹앱 설정. 설치는 기기 확인이 아닙니다. 서비스 워커·캐시는 쓰지 않습니다. -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#101a28">
   <style>
     :root { color-scheme: dark; font-family: system-ui, sans-serif; }
     body { margin: 0; min-height: 100vh; background: #101a28; color: #ecf4ff; }
@@ -30,6 +33,9 @@
     li button { font: inherit; font-size: 14px; padding: 6px 12px; border: 1px solid #51667c; border-radius: 8px; background: transparent; color: #ecf4ff; cursor: pointer; }
     li button.danger { border-color: #d07384; color: #ffb4c0; }
     li button:disabled { opacity: .6; cursor: wait; }
+    .device-status { margin: 26px 0 0; padding: 14px 18px; border: 1px solid #51667c; border-radius: 14px; background: #1a2a3d; color: #bfd0e5; font-size: 15px; line-height: 1.6; }
+    .device-status b { color: #ffe08a; }
+    .offline { margin: 16px 0 0; padding: 14px 18px; border: 1px solid #d07384; border-radius: 14px; color: #ffe3e8; background: #612a3544; }
     /* .auth form의 display: grid가 hidden 속성을 덮지 않게 합니다. */
     [hidden] { display: none !important; }
   </style>
@@ -38,6 +44,12 @@
   <main>
     <div class="eyebrow">BYTE BACK · 5단계 서버 한곳으로</div>
     <h1>점령된 자료실</h1>
+    <!-- 11단계: 기기 승인 상태. 서버 확인 기능이 아직 없어 항상 "확인 전"입니다. 설치·독립 창 여부로 바꾸지 않습니다. -->
+    <div id="device-status" class="device-status" role="status">
+      기기 승인 상태: <b id="device-approval">확인 전</b><br>
+      앱으로 설치하거나 독립 창으로 열어도 기기 확인이 끝난 것이 아닙니다. 기기 승인은 서버 확인으로만 정해집니다.
+    </div>
+    <div id="offline-notice" class="offline" role="alert" hidden>오프라인입니다. 자료는 서버 연결과 기기 승인 뒤에만 볼 수 있습니다.</div>
     <p>로그인한 사용자는 자기 메모만 볼 수 있습니다. 아래 기록은 모두 실습을 위해 만든 가상 자료입니다.</p>
     <div class="notice">메모는 이 사이트의 서버 함수를 통해서만 읽고 씁니다. 자료 저장소로 직접 들어가는 길은 로그인 여부와 관계없이 닫혀 있고, 다른 사람의 메모는 ID를 알더라도 읽기·수정·삭제가 모두 거부됩니다.</div>
     <section class="auth" aria-label="로그인">
@@ -64,5 +76,15 @@
   </main>
   <!-- 메모 목록은 로그인 세션 토큰이 필요해서 auth.js가 불러옵니다. -->
   <script type="module" src="/auth.js"></script>
+  <!-- 11단계: 오프라인 안내만 켜고 끕니다. 자료를 저장하거나 캐시하지 않고, 승인 상태 표시는 바꾸지 않습니다. -->
+  <script>
+    (function () {
+      var notice = document.getElementById('offline-notice');
+      function update() { notice.hidden = navigator.onLine !== false; }
+      window.addEventListener('online', update);
+      window.addEventListener('offline', update);
+      update();
+    })();
+  </script>
 </body>
 </html>
