@@ -273,7 +273,7 @@ async function runStepElevenChecks(app, config) {
 
 // 12단계: 심판이 격리 환경에서 npm run bundle을 실행하므로, 공개 HTTPS 주소(publicAppUrl·originalApiUrl)에
 // GET·HEAD 요청만 보냅니다. 쓰기 요청·로그인·기기 서명·엔진이 필요한 점검은 요청을 보내지 않고 observed를 "not_run"으로 두며,
-// 이유는 expected에 적습니다. node:crypto(randomUUID·sha256)만 쓰고 Buffer·전역 crypto는 쓰지 않습니다.
+// 이유는 expected에 적습니다. node:crypto(randomUUID·sha256 hex)만 쓰고 Buffer·전역 crypto는 쓰지 않습니다.
 const NOT_RUN = 'not_run';
 const B64URL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 
@@ -296,8 +296,9 @@ function readOnlyForgedToken(config) {
   const header = asciiBase64url(JSON.stringify({ alg: 'ES256', typ: 'JWT', kid: 'attack-check-forged' }));
   const payload = asciiBase64url(JSON.stringify({ iss: config.identityProvider?.issuer, aud: config.identityProvider?.audience,
     role: 'authenticated', sub: randomUUID(), iat: now, exp: now + 300 }));
-  const signature = createHash('sha256').update(randomUUID()).digest('base64url')
-    + createHash('sha256').update(randomUUID()).digest('base64url');
+  // 심판 격리 환경의 node:crypto는 sha256 결과를 hex로만 줍니다. hex 글자는 base64url 글자 범위 안이라 이어 붙여 씁니다.
+  const signature = createHash('sha256').update(randomUUID()).digest('hex')
+    + createHash('sha256').update(randomUUID()).digest('hex');
   return `${header}.${payload}.${signature}`;
 }
 

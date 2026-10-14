@@ -3,15 +3,16 @@
 // 이 시험은 fetch를 가짜로 바꿔 step 12 점검이 GET·HEAD 외의 요청을 하나라도 보내면 실패합니다.
 // 로컬 시험이며 심판 판정이 아닙니다.
 import assert from 'node:assert/strict';
+import { createHash as realCreateHash, randomUUID as realRandomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { test } from 'node:test';
+import { mock, test } from 'node:test';
 import { runAttackChecks } from '../src/attack-check.mjs';
 
 const ALLOWED_MODULES = ['node:fs', 'node:path', 'node:url', 'node:child_process', 'node:crypto'];
 const config = JSON.parse(readFileSync(new URL('../aleph.config.json', import.meta.url), 'utf8'));
 const WRITE_CHECKS = ['anonymous_create_note', 'anonymous_admin_notice_update', 'anonymous_note_restore'];
 
-async function runWithFakeFetch(stepConfig) {
+async function runWithFakeFetch(stepConfig, run = runAttackChecks) {
   const calls = [];
   const originalFetch = globalThis.fetch;
   const originalBuffer = globalThis.Buffer;
@@ -24,7 +25,7 @@ async function runWithFakeFetch(stepConfig) {
   globalThis.Buffer = undefined;
   Object.defineProperty(globalThis, 'crypto', { configurable: true, value: undefined });
   try {
-    return { attempts: await runAttackChecks(stepConfig), calls };
+    return { attempts: await run(stepConfig), calls };
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.Buffer = originalBuffer;
@@ -63,5 +64,45 @@ test('npm run bundle이 불러오는 파일은 허용된 node: 모듈만 import�
     for (const specifier of specifiers) {
       assert.ok(ALLOWED_MODULES.includes(specifier), `${file}: ${specifier}`);
     }
+  }
+});
+
+test('node:crypto가 randomUUID와 sha256 hex만 될 때도 step 12 점검이 끝까지 돈다', async () => {
+  // 심판 격리 환경처럼 createHash는 sha256·문자열 입력·digest('hex')만 허용하는 가짜로 바꿉니다.
+  const used = { algorithms: [], inputs: [], formats: [] };
+  const fakeCreateHash = algorithm => {
+    used.algorithms.push(algorithm);
+    if (algorithm !== 'sha256') throw new Error('hash_algorithm_unsupported');
+    const real = realCreateHash('sha256');
+    const hash = {
+      update(input) {
+        used.inputs.push(typeof input);
+        if (typeof input !== 'string') throw new Error('hash_input_unsupported');
+        real.update(input);
+        return hash;
+      },
+      digest(format) {
+        used.formats.push(format);
+        if (format !== 'hex') throw new Error('hash_encoding_unsupported');
+        return real.digest('hex');
+      },
+    };
+    return hash;
+  };
+  const cryptoMock = mock.module('node:crypto', { namedExports: { randomUUID: realRandomUUID, createHash: fakeCreateHash } });
+  try {
+    // 이미 불러온 모듈 대신 가짜 node:crypto로 새로 불러옵니다.
+    const { runAttackChecks: runHexOnly } = await import('../src/attack-check.mjs?hex-only');
+    const { attempts, calls } = await runWithFakeFetch(config, runHexOnly);
+    assert.ok(used.formats.length > 0, 'step 12 가짜 토큰이 sha256을 써야 함');
+    assert.deepEqual([...new Set(used.formats)], ['hex']);
+    assert.deepEqual([...new Set(used.algorithms)], ['sha256']);
+    assert.deepEqual([...new Set(used.inputs)], ['string']);
+    assert.ok(calls.every(call => ['GET', 'HEAD'].includes(call.method)));
+    assert.ok(attempts.length >= 1 && attempts.length <= 20);
+    process.stdout.write(`# hex 전용 node:crypto: createHash ${used.algorithms.length}회, digest 형식 ${[...new Set(used.formats)].join(',')}, 요청 ${calls.length}건
+`);
+  } finally {
+    cryptoMock.restore();
   }
 });
