@@ -2,7 +2,7 @@
 // Never return tokens, private keys, real names, or note bodies.
 // 실제로 보낸 요청의 결과만 기록합니다. 심판의 판정이 아닙니다.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -24,6 +24,8 @@ export async function runAttackChecks(config) {
   if (config.step === 9) return runStepNineChecks(app, config);
   if (config.step === 10) return runStepTenChecks(app, config);
   if (config.step === 11) return runStepElevenChecks(app, config);
+  // 12단계 탐색 중: 새 점검 없이 11단계 점검을 그대로 다시 보냅니다.
+  if (config.step === 12) return runStepElevenChecks(app, config);
   const response = await fetch(new URL('/data.json', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
   });
