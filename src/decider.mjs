@@ -2,7 +2,9 @@
 // 6단계부터 규칙을 하나씩 추가합니다. 규칙에 맞지 않는 요청은 거부합니다.
 // 요청 본문의 userId, role, 기기 키, 토큰을 별도로 믿거나 저장하지 마세요.
 export const RULE_IDS = Object.freeze(['starter.deny', 'device_registered', 'step_up_required',
-  'anomaly.region', 'anomaly.network', 'anomaly.hour', 'anomaly.burst']);
+  'anomaly.region', 'anomaly.network', 'anomaly.hour', 'anomaly.burst',
+  'zone.notes.read', 'zone.notices.read', 'zone.notes.list', 'zone.notes.write', 'zone.notices.write',
+  'zone.instructor', 'zone.route_mismatch', 'zone.query', 'zone.unknown']);
 
 const respond = (requestId, decision, reasonCode, ruleIds) => ({
   schema: 'aleph.decision.v1',
@@ -85,6 +87,64 @@ export function freshStepUp(request) {
     && stepUp.authAgeSeconds >= 0 && stepUp.authAgeSeconds <= STEP_UP_MAX_AGE_SECONDS;
 }
 
+// 8단계 구역 규칙: 메모(notes)·반 공지(notices)·강사 자료를 서비스와 정확한 경로 모양으로 나눕니다.
+// 허용 경로는 아래 세 모양뿐이며, route 앞의 /api 유무만 같은 경로로 봅니다(그 밖의 변형은 알 수 없는 경로).
+// 메모 주인 비교는 판정기가 아니라 메모 API(owner_id = 검증된 사용자 ID)가 합니다. 판정기 요청에는 역할이 없으므로
+// 강사의 공지 수정은 판정기가 아닌 서버의 관리 경로에서 처리하고, 판정기에서는 모든 쓰기를 거부합니다.
+// 심판의 가상 메모 ID는 UUID가 아닐 수 있으므로 :id 칸은 빈 값이 아니고 /가 없는 한 칸이면 받습니다.
+const ALLOWED_ZONES = Object.freeze({
+  'GET /notes/:id': 'zone.notes.read',
+  'GET /notices': 'zone.notices.read',
+  'GET /notices/:id': 'zone.notices.read',
+});
+const WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
+const INSTRUCTOR_SEGMENTS = ['instructor', 'instructors'];
+const ROUTE_LABEL = /^(GET|POST|PUT|PATCH|DELETE) (\/[^\s?#]*)$/u;
+
+// route 이름표를 { method, segments(요청 path와 비교할 모양), key(/api를 뗀 모양), zone }으로 읽습니다.
+function readRoute(route) {
+  const match = typeof route === 'string' ? ROUTE_LABEL.exec(route) : null;
+  if (!match) return null;
+  const segments = match[2].split('/').slice(1);
+  const bare = segments[0] === 'api' ? segments.slice(1) : segments;
+  return { method: match[1], segments, bare, key: `${match[1]} /${bare.join('/')}` };
+}
+
+// path가 route 모양과 칸 수까지 같은지 봅니다. 정적 칸은 글자가 같아야 하고, :id 칸은 빈 값이 아닌 한 칸입니다.
+function pathMatches(path, segments) {
+  if (typeof path !== 'string' || !path.startsWith('/') || /[?#]/u.test(path)) return false;
+  const parts = path.split('/').slice(1);
+  return parts.length === segments.length
+    && segments.every((segment, index) => (segment === ':id' ? parts[index].length > 0 : parts[index] === segment));
+}
+
+// 구역 판정: { allowed: true, rule } 또는 { allowed: false, rule }.
+export function checkZone(request) {
+  if (request.queryLength !== 0) return { allowed: false, rule: 'zone.query' };
+  const route = readRoute(request.route);
+  if (!route) return { allowed: false, rule: 'zone.unknown' };
+  const allowedRule = ALLOWED_ZONES[route.key];
+  if (!allowedRule) {
+    const [area, id, ...rest] = route.bare;
+    if (INSTRUCTOR_SEGMENTS.includes(area)) return { allowed: false, rule: 'zone.instructor' };
+    const knownShape = rest.length === 0 && (id === undefined || id === ':id');
+    if (area === 'notes' && knownShape && route.method === 'GET') return { allowed: false, rule: 'zone.notes.list' };
+    if (area === 'notes' && knownShape && WRITE_METHODS.includes(route.method)) {
+      return { allowed: false, rule: 'zone.notes.write' };
+    }
+    if (area === 'notices' && knownShape && WRITE_METHODS.includes(route.method)) {
+      return { allowed: false, rule: 'zone.notices.write' };
+    }
+    return { allowed: false, rule: 'zone.unknown' };
+  }
+  // route 이름표만 믿지 않습니다. method·path·service가 모두 그 경로와 맞아야 합니다.
+  if (request.method !== route.method || !pathMatches(request.path, route.segments)
+      || request.service !== route.bare[0]) {
+    return { allowed: false, rule: 'zone.route_mismatch' };
+  }
+  return { allowed: true, rule: allowedRule };
+}
+
 export async function decide(request) {
   const valid = request !== null && typeof request === 'object' && !Array.isArray(request);
   const requestId = valid && typeof request.requestId === 'string' ? request.requestId : null;
@@ -93,18 +153,18 @@ export async function decide(request) {
   if (!valid || request.deviceRegistered !== true) {
     return respond(requestId, 'deny', 'device_not_registered', 'device_registered');
   }
-  // 등록 기기의 읽기(GET)만 허용합니다. 경로는 엔진이 이미 허용 경로로 확인했습니다.
-  if (request.method === 'GET') {
-    // 7단계: 평소와 다른 접속은 새 로그인 확인 전까지 자료를 주지 않고 엔진에 추가 확인을 요청합니다.
-    // stepUp만으로는 통과시키지 않습니다. 등록 기기·GET·이상 표시 판단을 모두 거친 뒤에만 봅니다.
-    const anomalies = findAnomalies(request);
-    if (anomalies.length > 0) {
-      if (!freshStepUp(request)) {
-        return respond(requestId, 'step_up', 'step_up_required', ['step_up_required', ...anomalies]);
-      }
-      return respond(requestId, 'allow', 'approved', ['device_registered', 'step_up_required', ...anomalies]);
+  // 8단계 구역 검사: 허용 경로 세 개가 아니면 재인증 여부와 상관없이 기본 거부 코드로 거부합니다.
+  const zone = checkZone(request);
+  if (!zone.allowed) return respond(requestId, 'deny', 'starter_not_ready', ['starter.deny', zone.rule]);
+  // 7단계: 평소와 다른 접속은 새 로그인 확인 전까지 자료를 주지 않고 엔진에 추가 확인을 요청합니다.
+  // stepUp만으로는 통과시키지 않습니다. 등록 기기·구역·이상 표시 판단을 모두 거친 뒤에만 봅니다.
+  const anomalies = findAnomalies(request);
+  if (anomalies.length > 0) {
+    if (!freshStepUp(request)) {
+      return respond(requestId, 'step_up', 'step_up_required', ['step_up_required', ...anomalies]);
     }
-    return respond(requestId, 'allow', 'approved', 'device_registered');
+    return respond(requestId, 'allow', 'approved',
+      ['device_registered', zone.rule, 'step_up_required', ...anomalies]);
   }
-  return respond(requestId, 'deny', 'starter_not_ready', 'starter.deny');
+  return respond(requestId, 'allow', 'approved', ['device_registered', zone.rule]);
 }

@@ -2,7 +2,7 @@
 // Never return tokens, private keys, real names, or note bodies.
 // 실제로 보낸 요청의 결과만 기록합니다. 심판의 판정이 아닙니다.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4, 5, 6, 7].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5, 6, 7, 8].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -20,6 +20,7 @@ export async function runAttackChecks(config) {
   if (config.step === 5) return runStepFiveChecks(app, config);
   if (config.step === 6) return runStepSixChecks(app, config);
   if (config.step === 7) return runStepSevenChecks(app, config);
+  if (config.step === 8) return runStepEightChecks(app, config);
   const response = await fetch(new URL('/data.json', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
   });
@@ -197,5 +198,25 @@ async function runStepSevenChecks(app, config) {
     ...await runStepSixChecks(app, config),
     { attackId: 'unusual_access_before_step_up', expected: '평소와 다른 접속은 새 로그인 확인 전 자료 없이 step_up·step_up_required, 재인증 뒤 다시 판정',
       observed: '미실행, 엔진 연결 필요 (로컬 가상 요청 연습은 npm run decider:test, npm run fixture:7)' },
+  ];
+}
+
+// 8단계: 7단계 점검에 더해, 로그인 없이 공지 목록과 강사 관리 경로를 실제로 요청해 거부되는지 기록합니다.
+// 대상 공지는 공개 가능한 가상 시험 공지(고정 id)입니다. 로그인이 필요한 교차 점검은 미실행으로 남깁니다.
+const TEST_NOTICE_ID = 'c8c8c8c8-0000-4000-8000-00000000c008';
+
+async function runStepEightChecks(app, config) {
+  return [
+    ...await runStepSevenChecks(app, config),
+    { attackId: 'anonymous_list_notices', expected: '로그인 없이 GET /api/notices 요청은 401 JSON으로 거부',
+      observed: `로그인 없이 공지 목록 조회: ${await attempt(new URL('/api/notices', app), { method: 'GET' })}` },
+    { attackId: 'anonymous_admin_notice_update', expected: '로그인 없이 PUT /api/admin/notices/:id 요청은 401 JSON으로 거부',
+      observed: `로그인 없이 관리 경로로 공지 수정: ${await attempt(new URL(`/api/admin/notices/${TEST_NOTICE_ID}`, app), {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'attack-check 비로그인 수정 시도', body: '', role: 'instructor' }) })}` },
+    { attackId: 'student_admin_notice_update', expected: '강사 목록에 없는 학생 A 토큰으로 PUT /api/admin/notices/:id 요청은 403 NOT_INSTRUCTOR',
+      observed: '미실행, 화면 밖에서 직접 확인 (실제 계정의 비밀번호·토큰이 필요해 자동 점검하지 않음)' },
+    { attackId: 'cross_resource_id', expected: '로그인한 A가 메모 경로에 공지 id, 공지 경로에 메모 id를 넣으면 각각 404',
+      observed: '미실행, 직접 확인 (실제 계정의 비밀번호·토큰이 필요해 자동 점검하지 않음)' },
   ];
 }
