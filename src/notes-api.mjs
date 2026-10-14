@@ -221,16 +221,24 @@ export async function handleRestore(request, response) {
   }
   const result = current.data
     ? await supabase.from(TABLE).update({ title: saved.title, content: saved.content })
-      .eq('id', noteId).eq('owner_id', saved.owner_id).select('id, title, content, owner_id').maybeSingle()
+      .eq('id', noteId).eq('owner_id', saved.owner_id)
     : await supabase.from(TABLE).insert({ id: noteId, owner_id: saved.owner_id, sample_marker: config.sampleMarker,
-      title: saved.title, content: saved.content }).select('id, title, content, owner_id').maybeSingle();
+      title: saved.title, content: saved.content });
   if (result.error) return failed(response, result.error, '복구');
-  if (!result.data || result.data.owner_id !== login.userId
-      || contentSha256(result.data.content) !== saved.content_sha256) {
+  // 쓰기가 끝난 뒤 DB에서 그 한 건을 다시 읽어, id·owner_id·본문 해시가 사본과 셋 다 같을 때만 200으로 답합니다.
+  // 해시는 사본 저장 때와 같은 contentSha256으로 계산합니다.
+  const reread = await supabase.from(TABLE).select('id, title, content, owner_id').eq('id', noteId).maybeSingle();
+  if (reread.error) return failed(response, reread.error, '복구 뒤 조회');
+  const row = reread.data;
+  const rowSha256 = typeof row?.content === 'string' ? contentSha256(row.content) : null;
+  if (!row || String(row.id).toLowerCase() !== saved.note_id || row.owner_id !== saved.owner_id
+      || row.owner_id !== login.userId || rowSha256 !== saved.content_sha256) {
     console.error('notes: 복구 결과 확인 실패');
     return send(response, 500, { error: 'RESTORE_CHECK_FAILED' });
   }
   await audit(login.userId, 'restore', noteId,
     current.data ? contentSha256(current.data.content) : null, saved.content_sha256);
-  return send(response, 200, toNote(result.data));
+  // 심판이 응답만으로 대조할 수 있게 소유자(sub)와 본문 해시를 두 이름으로 함께 돌려줍니다.
+  return send(response, 200, { ...toNote(row), ownerId: row.owner_id, owner_id: row.owner_id,
+    contentSha256: rowSha256, content_sha256: rowSha256 });
 }
