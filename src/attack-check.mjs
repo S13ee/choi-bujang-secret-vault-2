@@ -312,7 +312,8 @@ const SAFE_ERROR = /^[A-Za-z0-9_.-]{1,60}$/u;
 // 값 안의 공백·쉼표만 _로 바꿔 한 칸으로 읽히게 합니다.
 const RESPONSE_ID_NAME = /request-id|request_id|trace-id|correlation-id/u;
 
-function responseIds(response) {
+// 값이 우리가 만든 requestId와 똑같은 항목은 이미 requestId로 적었으므로 뺍니다. [이름, 값] 쌍을 돌려줍니다.
+function responseIds(response, requestId) {
   try {
     const headers = response?.headers;
     const entries = typeof headers?.entries === 'function' ? [...headers.entries()]
@@ -320,10 +321,10 @@ function responseIds(response) {
     const rank = name => (/request[-_]id/u.test(name) ? 0 : name === 'x-vercel-id' ? 1 : 2);
     return entries
       .map(([name, value]) => [String(name).toLowerCase(), String(value ?? '')])
-      .filter(([name, value]) => (RESPONSE_ID_NAME.test(name) || name === 'x-vercel-id') && value)
+      .filter(([name, value]) => (RESPONSE_ID_NAME.test(name) || name === 'x-vercel-id') && value && value !== requestId)
       .sort((a, b) => rank(a[0]) - rank(b[0]))
       .slice(0, 3)
-      .map(([name, value]) => `${name}:${value.replace(/[\s,]/gu, '_').slice(0, 80)}`);
+      .map(([name, value]) => [name, value.replace(/[\s,]/gu, '_').slice(0, 80)]);
   } catch {
     return [];
   }
@@ -348,11 +349,17 @@ async function tracedRequest(attackId, url, { method = 'GET', headers = {} } = {
       if (typeof data?.error === 'string' && SAFE_ERROR.test(data.error)) error = data.error;
     } catch { /* JSON이 아니면 error를 적지 않습니다. */ }
   }
-  // 300자를 넘으면 뒤가 잘리므로 ID를 앞에, 주소를 맨 뒤에 둡니다.
-  const ids = responseIds(response);
-  return [`requestId=${requestId}`, ...(ids.length ? [`responseIds=${ids.join(',')}`] : []), `method=${method}`,
-    `status=${response.status}`, ...(error ? [`error=${error}`] : []), `checkedAt=${checkedAt}`, `url=${target}`]
-    .join(' ').slice(0, 300);
+  // 순서: requestId → responseIds → method → status → error → checkedAt → url. 뒤를 자르지 않고,
+  // 300자를 넘으면 1) responseIds의 x-vercel-id, 2) error, 3) responseIds 전체 순서로 빼서 맞춥니다.
+  // requestId·method·status·checkedAt·url(쿼리 포함 전체 주소)은 빼거나 자르지 않습니다.
+  const ids = responseIds(response, requestId);
+  const withoutVercel = ids.filter(([name]) => name !== 'x-vercel-id');
+  const build = (useIds, withError) => [`requestId=${requestId}`,
+    ...(useIds.length ? [`responseIds=${useIds.map(([name, value]) => `${name}:${value}`).join(',')}`] : []),
+    `method=${method}`, `status=${response.status}`, ...(withError && error ? [`error=${error}`] : []),
+    `checkedAt=${checkedAt}`, `url=${target}`].join(' ');
+  const choices = [build(ids, true), build(withoutVercel, true), build(withoutVercel, false), build([], false)];
+  return choices.find(text => text.length <= 300) ?? choices.at(-1);
 }
 
 function originalApiTarget(config) {

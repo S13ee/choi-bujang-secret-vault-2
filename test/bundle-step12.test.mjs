@@ -145,13 +145,15 @@ test('fetch가 예외를 던지면 그 점검의 observed는 not_run이다', asy
   for (const item of attempts) assert.equal(item.observed, 'not_run', item.attackId);
 });
 
-test('응답 헤더의 x-request-id·x-vercel-id가 observed에 들어가고, 주소가 길어도 ID는 잘리지 않는다', async () => {
+test('응답 ID: requestId와 같은 값은 빼고, 다른 요청 ID 헤더를 x-vercel-id보다 먼저, 주소는 끝까지 넣고 300자 이하', async () => {
+  const VERCEL = 'icn1::iad1::ghxr7-1791958053772-2c598fc55cef';
+  const ALEPH = 'aleph-fake-req-0001';
   const originalFetch = globalThis.fetch;
   const calls = [];
   globalThis.fetch = async (url, init = {}) => {
     calls.push({ url: String(url), headers: { ...(init.headers ?? {}) } });
-    const requestId = init.headers['X-Request-Id'];
-    const headers = new Headers({ 'X-Request-Id': requestId, 'X-Vercel-Id': 'icn1::fake-vercel-id-123', 'Content-Type': 'application/json' });
+    // 서버처럼 우리 X-Request-Id를 그대로 돌려주고, 심판 장치가 붙였을 수 있는 다른 이름의 요청 ID와 x-vercel-id를 함께 줍니다.
+    const headers = new Headers({ 'X-Vercel-Id': VERCEL, 'X-Request-Id': init.headers['X-Request-Id'], 'X-Aleph-Request-Id': ALEPH });
     return { ok: false, status: 401, headers, json: async () => ({ error: 'LOGIN_REQUIRED' }) };
   };
   try {
@@ -160,19 +162,48 @@ test('응답 헤더의 x-request-id·x-vercel-id가 observed에 들어가고, �
     assert.equal(sent.length, 8);
     for (const item of sent) {
       const call = calls.find(c => c.headers['X-Aleph-Attack-Id'] === item.attackId);
-      assert.equal(field(item.observed, 'responseIds'), `x-request-id:${call.headers['X-Request-Id']},x-vercel-id:icn1::fake-vercel-id-123`, item.attackId);
+      const requestId = call.headers['X-Request-Id'];
+      assert.ok(item.observed.length <= 300, `${item.attackId}: ${item.observed.length}자`);
+      assert.equal(field(item.observed, 'url'), call.url, `${item.attackId}: 주소 전체`);
+      assert.ok(item.observed.endsWith(` url=${call.url}`), item.attackId);
+      assert.equal(field(item.observed, 'requestId'), requestId);
+      assert.equal(item.observed.includes(`x-request-id:${requestId}`), false, `${item.attackId}: requestId와 같은 x-request-id는 빼야 함`);
+      assert.ok(field(item.observed, 'method') && field(item.observed, 'status') && field(item.observed, 'checkedAt'));
+      const ids = field(item.observed, 'responseIds') ?? '';
+      assert.ok(ids.startsWith(`x-aleph-request-id:${ALEPH}`), `${item.attackId}: 다른 요청 ID가 먼저 (${ids})`);
+      if (ids.includes('x-vercel-id')) assert.ok(ids.indexOf('x-aleph-request-id') < ids.indexOf('x-vercel-id'));
     }
-    // 아주 긴 주소(원본 API 경로를 400자 넘게): 300자에서 잘려도 앞의 requestId·responseIds는 온전해야 합니다.
-    const { runAttackChecks: run2 } = await import('../src/attack-check.mjs?long-url');
-    const longConfig = { ...config, originalApiUrl: `${config.originalApiUrl.replace(/\/[^/]+$/u, '')}/${'v'.repeat(400)}` };
-    const longAttempts = await run2(longConfig);
-    const longItem = longAttempts.find(item => item.attackId === 'original_api_direct_read');
-    assert.equal(longItem.observed.length, 300, '300자에서 잘림');
-    const longCall = calls.at(-8);
-    assert.equal(field(longItem.observed, 'requestId'), longCall.headers['X-Request-Id'], 'requestId는 온전함');
-    assert.equal(field(longItem.observed, 'responseIds'), `x-request-id:${longCall.headers['X-Request-Id']},x-vercel-id:icn1::fake-vercel-id-123`, 'responseIds는 온전함');
-    assert.match(longItem.observed, / method=GET status=401 error=LOGIN_REQUIRED checkedAt=\S+ url=https:\/\//u);
-    process.stdout.write(`# 응답 ID 포함 observed 예: ${sent[1].observed.slice(0, 160)}…\n`);
+    const query = sent.find(item => item.attackId === 'query_appended_note_read');
+    assert.match(field(query.observed, 'url'), /\?x=1$/u);
+    // 주소가 길어질수록 1) x-vercel-id, 2) error, 3) responseIds 전체 순서로 빠지고, 주소·requestId·method·status·checkedAt은 남아야 합니다.
+    const base = config.originalApiUrl.replace(/\/[^/]+$/u, '');
+    const seen = new Set();
+    for (const extra of [40, 80, 110, 140]) {
+      calls.length = 0;
+      const longUrl = `${base}/${'v'.repeat(extra)}`;
+      const item = (await runAttackChecks({ ...config, originalApiUrl: longUrl })).find(a => a.attackId === 'original_api_direct_read');
+      const call = calls.find(c => c.headers['X-Aleph-Attack-Id'] === 'original_api_direct_read');
+      assert.ok(item.observed.length <= 300, `${extra}: ${item.observed.length}자`);
+      assert.equal(field(item.observed, 'url'), longUrl);
+      assert.equal(field(item.observed, 'requestId'), call.headers['X-Request-Id']);
+      assert.ok(field(item.observed, 'method') && field(item.observed, 'status') && field(item.observed, 'checkedAt'));
+      const hasVercel = item.observed.includes('x-vercel-id:');
+      const hasError = item.observed.includes(' error=');
+      const hasIds = item.observed.includes(' responseIds=');
+      if (hasError) assert.ok(hasIds, '`error`가 있으면 responseIds도 있어야 함(빼는 순서)');
+      if (hasVercel) assert.ok(hasError, 'x-vercel-id가 있으면 error도 있어야 함(빼는 순서)');
+      seen.add(`${hasIds ? 'ids' : '-'}/${hasVercel ? 'vercel' : '-'}/${hasError ? 'error' : '-'}`);
+    }
+    assert.ok(seen.size >= 3, `빼는 단계가 여러 개 나와야 함: ${[...seen].join(' ')}`);
+    // 꼭 남길 항목만으로도 300자를 넘는 주소(약 192자 초과)는 자르지 않고 그대로 둡니다(이 경우는 알려야 할 예외).
+    const tooLong = `${base}/${'v'.repeat(150)}`;
+    const over = (await runAttackChecks({ ...config, originalApiUrl: tooLong })).find(a => a.attackId === 'original_api_direct_read');
+    assert.equal(field(over.observed, 'url'), tooLong, '넘쳐도 주소는 자르지 않음');
+    assert.equal(over.observed.includes(' responseIds=') || over.observed.includes(' error='), false);
+    process.stdout.write(`# 예외: 주소 ${tooLong.length}자이면 observed ${over.observed.length}자(300자 초과, 자르지 않음)
+`);
+    process.stdout.write(`# 길이별 남은 항목: ${[...seen].join(' → ')}\n`);
+    process.stdout.write(`# observed 예(${query.observed.length}자): ${query.observed}\n`);
   } finally {
     globalThis.fetch = originalFetch;
   }
