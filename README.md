@@ -286,7 +286,7 @@
 | 개발자 도구 Application | Local storage 비어 있음, Service worker 없음 |
 | Supabase `byteback_vault_devices` | 승인한 기기 approved와 `approved_at` 기록, 새로 고침으로 생긴 기기 pending |
 
-11단계 심판 재판정 결과는 아직 이 README에 기록하지 않았습니다(미확인). 엔진을 거친 판정은 이 PC에서 **미실행**입니다.
+11단계 심판 판정은 100점입니다(학생이 전함). 엔진을 거친 판정 과정은 이 PC에서 **미실행**이며 심판이 확인했습니다.
 
 ### 막혔던 점
 
@@ -304,16 +304,46 @@
 - 승인 경로에는 비밀번호 시도 횟수 제한이 없습니다(서명과 1회용 번호가 필요하지만, 등록한 기기로는 계속 시도할 수 있음).
 - `[req11]` 요청 기록은 관찰용이며 아직 켜져 있습니다.
 
-## 12단계: 탈환 작전실을 완성합니다 (진행 중)
+## 12단계: 탈환 작전실을 완성합니다 (저장점, 진행 중)
 
-현재 단계는 `aleph.config.json`의 `step: 12`입니다. 저장소·배포 주소·`identityProvider`·`originalApiUrl`·`judgeIssuer`·`allowedRoutes`(세 경로)·`restoreRoute`는 11단계와 같습니다. 11단계 저장점 커밋은 `d9a70a0`입니다.
+현재 단계는 `aleph.config.json`의 `step: 12`입니다. 저장소·배포 주소·`identityProvider`·`originalApiUrl`·`judgeIssuer`·`allowedRoutes`(세 경로)·`restoreRoute`는 11단계와 같습니다. 11단계 저장점 커밋은 `d9a70a0`입니다. 12단계 심판 판정은 지금까지 최고 53점이며 아직 진행 중입니다.
 
-- **응답 기록** (`src/request-log.mjs`, `71afc9b`): 정찰용으로 응답마다 `[res12]` 한 줄(메서드·쿼리 뺀 경로·상태 코드·error·토큰 iss로만 나눈 기록용 로그인 분류·심판 신원 a/b·기기 서명 헤더 유무)을 남깁니다. 이 분류는 권한 판단에 쓰지 않으며, 토큰 원문·sub·aleph_run·서명·헤더 값·본문·쿼리 값·쿠키는 남기지 않습니다.
-- **제출 묶음 점검을 읽기 요청만으로** (`src/attack-check.mjs`의 `runStepTwelveChecks`, `6b59771`·`108c0cf`): 심판이 격리 환경에서 `npm run bundle`을 실행하므로 step 12 점검은 공개 HTTPS 주소에 GET·HEAD만 보냅니다(읽기 8개). 쓰기·로그인·기기 서명·엔진이 필요한 점검 10개는 요청 없이 `observed: "not_run"`이고 이유는 expected에 있습니다. 제출 묶음이 불러오는 파일은 `node:fs`·`node:path`·`node:url`·`node:child_process`·`node:crypto`만 import하고, 해시는 문자열 입력과 `digest('hex')`만 씁니다. `npm run test:bundle`이 가짜 fetch·가짜 node:crypto로 이를 확인합니다.
+### 만든 것
+
+- **시험 목록 한 곳** (`src/ops-catalog.mjs`, 브라우저 사본 `public/ops-catalog.js`): 1~11단계 정상·금지 요청 27개. 저장소에 근거가 있는 항목만 넣었고(README 재확인 표, 각 단계 자기 점검, 8·11단계 기록) 개수를 늘려 채우지 않았습니다. 앞의 18개가 제출 묶음 step 12 점검이고, 나머지 9개는 작전실 전용(로그인 + 승인된 기기 서명 GET 5개, 홈 화면 1개, 쓰기 3개)입니다. 각 항목에 단계·정상/금지·기대 결과·기대 상태 코드·보낼 요청(GET·HEAD만) 또는 보내지 않는 이유가 있습니다. 브라우저 사본과 서버 목록이 같은지는 `test/ops-room.test.mjs`가 확인합니다.
+- **기록표 명령** `npm run ops:record` (`scripts/ops-record.mjs`, `src/ops-records.mjs`): 기본은 `artifacts/submission.json`(`npm run bundle` 결과)의 attackId·observed를 그대로 표로 옮기며 새 요청을 보내지 않습니다(`-- --live`는 같은 점검을 새로 실행). 결과는 `artifacts/ops-records.json`·`.md`(Git 제외)이고 칸은 attackId·단계·정상/금지·기대 결과·실제 API 결과(상태·오류 코드)·요청 ID·확인 시각·실행 여부입니다. 실제로 보낸 요청의 결과만 적고, 보내지 않았거나 `not_run`인 항목은 「미실행」으로 결과 칸을 비웁니다. 쓰기 전에 비밀값 패턴을 검사합니다.
+- **탈환 작전실 화면** (`public/ops-room.js`, `public/index.html`, `public/auth.js`): 승인된 기기로 자료실이 열린 뒤에만 보입니다. 요약은 빌드가 저장소 파일에서 만든 `/ops-summary.json`(`scripts/ops-summary.mjs`, Git 제외)을 그대로 보여 줍니다: 판정기 규칙 수(`RULE_IDS` 16개), 탐지 규칙(`burst_read`, 120건 초과), 복구 버전(`safe-policy-step9-4e3e743`, 되돌린 기록 줄 수, 복구 경로). 「작전실 점검 실행」을 누르면 같은 시험 목록으로 그 자리에서 GET·HEAD 요청을 보내고(로그인이 필요한 항목은 같은 기기 키로 서명) 받은 응답만 표에 그립니다. 회수 상태는 실제 `/api/devices/status` 응답에서만 읽고, 엔진의 회수 집행은 「미확인」으로 둡니다. 응답 본문은 error 값·내 메모 id·기기 상태만 읽고 메모 본문은 표시하지 않습니다. 자료실이 닫히면 표를 비웁니다.
+- **작전실 수치**: 「행 · 실행 · 미실행 · 기대 상태와 같음 · 다름」은 모두 **행을 센 값**입니다. 비율·점수를 계산하지 않고, **미실행을 성공으로 세지 않습니다.**
+- **서버의 요청 ID** (`src/request-log.mjs`): 모든 api 응답에 `X-Request-Id` 헤더를 넣습니다(요청에 UUID 형식의 `x-request-id`가 있으면 그 값, 아니면 새 UUID). 응답마다 Vercel 로그에 `[res12]` 한 줄(메서드·쿼리 뺀 경로·상태·error·requestId·attackId·토큰 iss로만 나눈 기록용 로그인 분류·심판 신원 a/b·기기 서명 헤더 유무)을 남깁니다. 이 분류는 권한 판단에 쓰지 않으며 토큰·sub·서명·헤더 값·본문·쿼리 값·쿠키는 남기지 않습니다. 작전실과 bundle의 각 요청은 같은 requestId가 `[res12]`에 남도록 설계했습니다.
+
+### 제출 묶음 점검을 격리 환경 규칙에 맞춘 과정
+
+심판은 격리 환경에서 `npm run bundle`을 실행합니다. 그 환경 규칙에 맞추어 step 12 점검(`runStepTwelveChecks`)을 다음처럼 바꿨습니다.
+
+1. **GET·HEAD만** (`6b59771`): 11단계 점검 사슬을 다시 쓰던 step 12가 로그인 없는 `PUT /api/admin/notices/:id`·`POST /api/notes/:id/restore` 쓰기 요청을 보냈습니다. step 12 전용 점검을 만들어 공개 HTTPS 주소에 GET·HEAD만 보내고, 쓰기·로그인·기기 서명·엔진이 필요한 점검은 요청 없이 `observed: "not_run"`으로 바꿨습니다.
+2. **허용 모듈만**: 제출 묶음이 불러오는 파일은 `node:fs`·`node:path`·`node:url`·`node:child_process`·`node:crypto`만 import합니다(프로젝트 안의 `src/ops-catalog.mjs`는 import가 없는 데이터). 가짜 토큰도 Buffer·전역 crypto 없이 만듭니다.
+3. **sha256 hex만** (`108c0cf`): `createHash('sha256').digest('base64url')`가 격리 환경에서 `hash_encoding_unsupported`로 멈춰, 문자열 입력과 `digest('hex')`만 쓰게 했습니다.
+4. **not_run**: fetch가 예외를 던지면(요청이 나가지 못했거나 응답을 못 받으면) 결과를 적지 않고 `not_run`입니다.
+5. **요청 ID** (`168228c`·`148d343`·`0805e63`): 요청마다 `randomUUID()` 요청 ID를 `X-Request-Id`에, attackId를 `X-Aleph-Attack-Id`에 넣고, observed를 `requestId → responseIds → method → status → error → checkedAt → url` 순서로 적습니다. 응답의 요청·추적 ID(우리 requestId와 같은 값은 뺌)를 함께 적고, 300자를 넘으면 뒤를 자르지 않고 x-vercel-id → error → responseIds 순서로 빼서 주소는 끝까지 남깁니다.
+
+이 규칙은 `npm run test:bundle`(가짜 fetch·가짜 node:crypto)로 확인합니다.
+
+### 막혔던 점
+
+1. **S12_BUNDLE_UNSUPPORTED**: 제출 묶음이 GET·HEAD가 아닌 요청을 보냄 → step 12 전용 읽기 점검으로 해결(`6b59771`).
+2. **hash_encoding_unsupported**: 격리 환경의 sha256이 hex만 지원 → `digest('hex')`로 해결(`108c0cf`).
+3. **「실행 기록 대조」 조건은 아직 풀리지 않았습니다.** 심판 메시지는 「그 attackId로 보낸 요청 기록이 없습니다」였습니다. 요청 ID 헤더, 응답 ID, 주소가 잘리지 않는 observed까지 넣었지만(`168228c`~`0805e63`), 심판이 무엇을 기준으로 요청 기록과 attackId를 잇는지는 **확인하지 못했습니다.** Vercel 로그에서 심판 환경의 점검 요청과 우리가 붙인 헤더가 서버에 도착한 것은 학생이 확인했습니다. 원인은 미확인으로 둡니다.
+4. **S12_SCREEN_MISMATCH**(작전실 수치와 서버 기록이 다름): 작전실과 기록표를 이번에 새로 만들었으며, 이 조건이 풀렸는지는 아직 심판 판정을 받지 않아 **미확인**입니다.
+
+### 확인 순서
+
+1. `npm run bundle` → `npm run ops:record`: 기록표의 실행 행 요청 ID가 `artifacts/submission.json`의 observed와 같은지 봅니다.
+2. 배포에서 로그인 → 기기 승인 → 자료실 아래 「탈환 작전실」 → 「작전실 점검 실행」. 표의 요청 ID 몇 개를 Vercel Logs의 `[res12]`에서 찾아 같은 requestId·attackId·status인지 봅니다.
+3. 로컬 시험(심판 판정 아님): `npm run test:ops`, `npm run test:bundle`.
 
 ## 출처
 
-검사한 커밋은 `108c0cf`(12단계 보완: 제출 묶음 해시를 hex 형식으로)입니다. 이 절을 넣은 커밋은 README만 바꿉니다. 「시작 틀 + 학생 수정」은 시작 틀 첫 커밋 `e95d08b` 이후 git log에 학생 커밋이 있는 파일입니다.
+검사한 커밋은 `a845c6b`(12단계 제작 1: 탈환 작전실 화면)입니다. 이 절을 고친 12단계 저장점 커밋은 README만 바꿉니다. 「시작 틀 + 학생 수정」은 시작 틀 첫 커밋 `e95d08b` 이후 git log에 학생 커밋이 있는 파일입니다.
 
 ### 제공받은 것
 
@@ -335,11 +365,12 @@
 | 자료실 | `api/notes/index.js`, `api/notes/[id]/index.js`, `api/notes/[id]/restore.js`, `api/notices/index.js`, `api/notices/[id].js`, `api/admin/notices/[id].js`, `api/auth/login.js`·`logout.js`·`refresh.js`, `src/notes-api.mjs`, `src/notices-api.mjs`, `src/auth-api.mjs`, `src/request-log.mjs`, `supabase/`의 SQL 7개 | 학생 |
 | 정책 사본·되돌리기 | `policy/verified-policy.json`·`.sha256`·`restore-log.jsonl`, `scripts/policy-diff.mjs`, `scripts/policy-restore.mjs` | 학생 |
 | 점검 스크립트 | `src/attack-check.mjs` | 시작 틀 뼈대 + 학생 구현 |
-| 시험 | `test/device-sign.test.mjs`, `test/device-routes.test.mjs`, `test/device-screen.test.mjs`, `test/bundle-step12.test.mjs` | 학생 |
+| 탈환 작전실·기록표 | `src/ops-catalog.mjs`, `public/ops-catalog.js`(사본), `src/ops-records.mjs`, `scripts/ops-record.mjs`, `scripts/ops-summary.mjs`, `public/ops-room.js`, `src/request-log.mjs`(요청 기록·X-Request-Id) | 학생 |
+| 시험 | `test/device-sign.test.mjs`, `test/device-routes.test.mjs`, `test/device-screen.test.mjs`, `test/bundle-step12.test.mjs`, `test/ops-records.test.mjs`, `test/ops-room.test.mjs` | 학생 |
 
 비밀값은 저장소에 포장하지 않습니다. 서버 전용 키·공개 키 값은 Vercel 환경변수에만 있고, 메모·계정 정보가 든 `supabase/*.local.sql`, `bundle-notes.json`, `artifacts/`, `.env`는 Git에서 제외됩니다.
 
-## 설치·실행·중지·복구 안내 (검사한 커밋 `108c0cf`)
+## 설치·실행·중지·복구 안내 (검사한 커밋 `a845c6b`)
 
 공통 준비: Node.js 22 이상, `npm ci`. Vercel 환경변수 이름은 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`(서버 전용), `SUPABASE_PUBLISHABLE_KEY`이며 값은 Vercel **Settings → Environment Variables**에 직접 넣습니다(이 문서·Git에는 없음). Supabase SQL Editor 실행 순서(파일 이름만, `.local.sql`은 Git에 없는 로컬 전용):
 
@@ -367,7 +398,7 @@
 | 설치 | `npm ci`. 탐지 함수도 ALEPH SDP 엔진이 검증한 사건을 넘겨 부르는 함수입니다. |
 | 실행 | 로컬 연습: `npm run detect:test`. 실제 회수 제안 집행은 ALEPH SDP 엔진이 합니다. |
 | 중지 | 로컬 연습 명령은 끝나면 종료합니다. 엔진 쪽 중지는 운영 측 몫입니다. |
-| 복구 | `git diff 108c0cf -- src/detect.mjs`로 바뀐 점을 확인한 뒤 `git checkout 108c0cf -- src/detect.mjs`로 검사한 커밋의 파일을 되돌립니다(다른 파일은 그대로). |
+| 복구 | `git diff a845c6b -- src/detect.mjs`로 바뀐 점을 확인한 뒤 `git checkout a845c6b -- src/detect.mjs`로 검사한 커밋의 파일을 되돌립니다(다른 파일은 그대로). |
 
 ### 접속 앱 (설치형 웹앱·기기 승인·서명)
 
@@ -376,22 +407,22 @@
 | 설치 | 위 SQL 7번 실행 → 환경변수 세 개 → GitHub `main`에 push하면 Vercel이 `npm run build`로 배포. 서버 함수는 12개(Vercel Hobby 한도)라 `api/`에 파일을 더하지 않습니다. 브라우저에서는 배포 주소를 열고 필요하면 「앱 설치」를 합니다(설치는 기기 확인이 아님). |
 | 실행 | 배포 주소에서 로그인 → 기기 승인 화면 → 계정 비밀번호 재입력 → 서버가 `approved`라고 답하면 자료실이 열립니다. 로컬 시험: `npm run test:device`. |
 | 중지 | 화면에서 로그아웃(메모리의 기기 키를 버림). 특정 기기의 권한을 거두려면 Supabase에서 그 기기 행의 `status`를 `revoked`로 바꿉니다(회수된 기기는 다시 승인되지 않음). 배포 전체를 멈추려면 Vercel에서 이전 배포로 되돌립니다. |
-| 복구 | Vercel **Deployments**에서 검사한 커밋 `108c0cf`(또는 그 뒤 README만 바뀐 커밋)의 배포를 Promote하고 `/aleph.json`의 commit을 확인합니다. 새로 고침·재로그인 뒤에는 새 기기로 다시 승인합니다(키를 저장하지 않기 때문). |
+| 복구 | Vercel **Deployments**에서 검사한 커밋 `a845c6b`(또는 그 뒤 README만 바뀐 커밋)의 배포를 Promote하고 `/aleph.json`의 commit을 확인합니다. 새로 고침·재로그인 뒤에는 새 기기로 다시 승인합니다(키를 저장하지 않기 때문). |
 
 ### 자료실 (메모·공지·복구 API)
 
 | 순서 | 방법 |
 |---|---|
 | 설치 | 위 SQL 1~6번을 순서대로 실행 → 환경변수 세 개 → GitHub `main`에 push(Vercel 자동 배포). |
-| 실행 | 배포 주소에서 로그인하고 기기를 승인하면 메모 목록·추가·수정·삭제, 공지 읽기를 씁니다. 자기 점검: `npm run bundle`(공개 주소에 GET·HEAD만 보냄). |
+| 실행 | 배포 주소에서 로그인하고 기기를 승인하면 메모 목록·추가·수정·삭제, 공지 읽기를 씁니다. 자기 점검: `npm run bundle`(공개 주소에 GET·HEAD만 보냄) → 기록표 `npm run ops:record`. 승인된 자료실 아래 「탈환 작전실」에서 점검 실행. |
 | 중지 | Vercel에서 이전 배포로 되돌리거나 프로젝트를 멈춥니다. Supabase 프로젝트가 일시정지되면 서버 함수의 자료 요청이 실패합니다(5단계 때 실제로 겪음). |
 | 복구 | 메모 한 건: `POST /api/notes/:id/restore`(로그인 + 승인된 기기 서명 필요. 화면에 복구 버튼은 없음)가 사본에서 처음 만든 내용으로 되돌립니다. 정책: 위 판정기 복구 순서. 일시정지된 Supabase는 대시보드에서 다시 켭니다. |
 
 ### 확인 결과
 
-**로컬 시험 결과(심판 판정 아님)**, 커밋 `108c0cf`에서 실행: `npm run test:device` 13/13, `npm run test:bundle` 3/3, `npm run test:r5` 2/2, `npm run test:package` 3/3, `npm run decider:test` 4줄, `npm run detect:test` 6줄, `npm run fixture:7`(정상 allow·복합 이상 step_up), `npm run policy:diff` 「차이 없음」. 화면의 성공 문구나 로컬 시험은 통과 근거가 아닙니다.
+**로컬 시험 결과(심판 판정 아님)**, 커밋 `a845c6b`에서 실행: `npm run test:ops` 9/9, `npm run test:bundle` 7/7, `npm run test:device` 13/13, `npm run test:r5` 2/2, `npm run test:package` 3/3, `npm run decider:test` 4줄, `npm run detect:test` 6줄, `npm run fixture:7`(정상 allow·복합 이상 step_up), `npm run policy:diff` 「차이 없음」. 화면의 성공 문구나 로컬 시험은 통과 근거가 아닙니다.
 
-**심판 판정(실제로 받은 단계 점수만)**: 10단계 100점(학생이 전함). 1~9단계·11단계·12단계 점수는 이 README에 **미확인**입니다.
+**심판 판정(실제로 받은 단계 점수만, 학생이 전함)**: 1~5단계 각 100점(2차 침공 500/500), 6·7·8·9·10·11단계 각 100점, 12단계는 지금까지 최고 53점(진행 중).
 
 ## 시작 틀의 자동 처리
 
