@@ -302,35 +302,61 @@ function readOnlyForgedToken(config) {
   return `${header}.${payload}.${signature}`;
 }
 
-async function headStatus(url) {
+// 점검 하나당 요청을 정확히 한 번 보냅니다. 요청마다 randomUUID()로 요청 ID를 만들어 X-Request-Id에,
+// attackId를 X-Aleph-Attack-Id에 넣어 심판이 요청 기록과 결과를 맞춰 볼 수 있게 합니다(기존 헤더는 그대로).
+// 응답을 받으면 observed에 요청 ID·메서드·요청 주소 전체·상태 코드·error(있을 때만)·확인 시각만 적고,
+// fetch가 예외를 던지면(요청이 나가지 못했거나 응답을 못 받으면) observed는 정확히 "not_run"입니다. 토큰·본문은 적지 않습니다.
+const SAFE_ERROR = /^[A-Za-z0-9_.-]{1,60}$/u;
+
+async function tracedRequest(attackId, url, { method = 'GET', headers = {} } = {}) {
+  if (!['GET', 'HEAD'].includes(method)) return NOT_RUN;
+  const requestId = randomUUID();
+  const target = String(url);
+  let response;
   try {
-    const response = await fetch(url, { method: 'HEAD', redirect: 'error', signal: AbortSignal.timeout(10000) });
-    return `HTTP ${response.status}`;
-  } catch (error) {
-    return `요청 실패 (${error.name})`;
+    response = await fetch(target, { method, redirect: 'error', signal: AbortSignal.timeout(10000),
+      headers: { ...headers, 'X-Request-Id': requestId, 'X-Aleph-Attack-Id': attackId } });
+  } catch {
+    return NOT_RUN;
+  }
+  const checkedAt = new Date().toISOString();
+  let error = null;
+  if (method === 'GET') {
+    try {
+      const data = await response.json();
+      if (typeof data?.error === 'string' && SAFE_ERROR.test(data.error)) error = data.error;
+    } catch { /* JSON이 아니면 error를 적지 않습니다. */ }
+  }
+  return [`requestId=${requestId}`, `method=${method}`, `url=${target}`, `status=${response.status}`,
+    ...(error ? [`error=${error}`] : []), `checkedAt=${checkedAt}`].join(' ').slice(0, 300);
+}
+
+function originalApiTarget(config) {
+  try {
+    const url = new URL(config.originalApiUrl);
+    return url.protocol === 'https:' && !url.search && !url.hash ? url : null;
+  } catch {
+    return null;
   }
 }
 
 async function runStepTwelveChecks(app, config) {
   const bNote = new URL(`/api/notes/${B_TEST_NOTE_ID}`, app);
-  const get = (url, headers) => attempt(url, { method: 'GET', ...(headers ? { headers } : {}) });
+  const original = originalApiTarget(config);
+  const traced = async (attackId, expected, url, options) => ({ attackId, expected,
+    observed: url ? await tracedRequest(attackId, url, options) : NOT_RUN });
   return [
-    { attackId: 'original_api_direct_read', expected: '키·토큰 없이 originalApiUrl을 직접 GET하면 메모 없이 거부',
-      observed: `키 없이 원본 자료 직접 조회: ${await directOriginalRead(config)}` },
-    { attackId: 'anonymous_list_notes', expected: '로그인 없이 GET /api/notes 요청은 401 JSON으로 거부',
-      observed: `로그인 없이 목록 조회: ${await get(new URL('/api/notes', app))}` },
-    { attackId: 'anonymous_read_other_note', expected: '로그인 없이 GET /api/notes/:id(B 시험 메모) 요청은 401 JSON으로 거부',
-      observed: `로그인 없이 B 시험 메모 조회: ${await get(bNote)}` },
-    { attackId: 'forged_token_read_other_note', expected: '형식만 갖춘 가짜 토큰으로 GET /api/notes/:id(B 시험 메모) 요청은 401 JSON으로 거부',
-      observed: `가짜 토큰으로 B 시험 메모 조회: ${await get(bNote, { Authorization: `Bearer ${readOnlyForgedToken(config)}` })}` },
-    { attackId: 'query_appended_note_read', expected: '쿼리를 붙인 GET /api/notes/:id?x=1(로그인 없음)도 401 JSON으로 거부',
-      observed: `쿼리를 붙인 B 시험 메모 조회: ${await get(new URL(`/api/notes/${B_TEST_NOTE_ID}?x=1`, app))}` },
-    { attackId: 'anonymous_list_notices', expected: '로그인 없이 GET /api/notices 요청은 401 JSON으로 거부',
-      observed: `로그인 없이 공지 목록 조회: ${await get(new URL('/api/notices', app))}` },
-    { attackId: 'anonymous_device_status', expected: '로그인 없이 GET /api/devices/status 요청은 401 JSON으로 거부',
-      observed: `로그인 없이 기기 상태 조회: ${await get(new URL('/api/devices/status', app))}` },
-    { attackId: 'public_data_json_head', expected: '공개 /data.json은 없어야 함(HEAD 요청, 404 기대)',
-      observed: `HEAD /data.json: ${await headStatus(new URL('/data.json', app))}` },
+    await traced('original_api_direct_read', '키·토큰 없이 originalApiUrl을 직접 GET하면 메모 없이 거부',
+      original, { headers: { Accept: 'application/json' } }),
+    await traced('anonymous_list_notes', '로그인 없이 GET /api/notes 요청은 401 JSON으로 거부', new URL('/api/notes', app)),
+    await traced('anonymous_read_other_note', '로그인 없이 GET /api/notes/:id(B 시험 메모) 요청은 401 JSON으로 거부', bNote),
+    await traced('forged_token_read_other_note', '형식만 갖춘 가짜 토큰으로 GET /api/notes/:id(B 시험 메모) 요청은 401 JSON으로 거부',
+      bNote, { headers: { Authorization: `Bearer ${readOnlyForgedToken(config)}` } }),
+    await traced('query_appended_note_read', '쿼리를 붙인 GET /api/notes/:id?x=1(로그인 없음)도 401 JSON으로 거부',
+      new URL(`/api/notes/${B_TEST_NOTE_ID}?x=1`, app)),
+    await traced('anonymous_list_notices', '로그인 없이 GET /api/notices 요청은 401 JSON으로 거부', new URL('/api/notices', app)),
+    await traced('anonymous_device_status', '로그인 없이 GET /api/devices/status 요청은 401 JSON으로 거부', new URL('/api/devices/status', app)),
+    await traced('public_data_json_head', '공개 /data.json은 없어야 함(HEAD 요청, 404 기대)', new URL('/data.json', app), { method: 'HEAD' }),
     { attackId: 'anonymous_create_note', expected: '로그인 없이 POST /api/notes는 401이어야 함. 쓰기 요청이라 제출 묶음에서는 보내지 않음', observed: NOT_RUN },
     { attackId: 'anonymous_admin_notice_update', expected: '로그인 없이 PUT /api/admin/notices/:id는 401이어야 함. 쓰기 요청이라 제출 묶음에서는 보내지 않음', observed: NOT_RUN },
     { attackId: 'anonymous_note_restore', expected: '로그인 없이 POST /api/notes/:id/restore는 401이어야 함. 쓰기 요청이라 제출 묶음에서는 보내지 않음', observed: NOT_RUN },

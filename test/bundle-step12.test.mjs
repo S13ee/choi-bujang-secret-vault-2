@@ -12,13 +12,15 @@ const ALLOWED_MODULES = ['node:fs', 'node:path', 'node:url', 'node:child_process
 const config = JSON.parse(readFileSync(new URL('../aleph.config.json', import.meta.url), 'utf8'));
 const WRITE_CHECKS = ['anonymous_create_note', 'anonymous_admin_notice_update', 'anonymous_note_restore'];
 
-async function runWithFakeFetch(stepConfig, run = runAttackChecks) {
+async function runWithFakeFetch(stepConfig, run = runAttackChecks, { fail = false } = {}) {
   const calls = [];
   const originalFetch = globalThis.fetch;
   const originalBuffer = globalThis.Buffer;
   const cryptoDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
   globalThis.fetch = async (url, init = {}) => {
-    calls.push({ url: String(url), method: (init.method ?? 'GET').toUpperCase(), hasBody: init.body !== undefined });
+    calls.push({ url: String(url), method: (init.method ?? 'GET').toUpperCase(), hasBody: init.body !== undefined, headers: { ...(init.headers ?? {}) } });
+    // fail이면 요청이 나가지 못한 것처럼 예외를 던집니다.
+    if (fail) throw new TypeError('fetch failed');
     return { ok: false, status: 401, json: async () => ({ error: 'LOGIN_REQUIRED' }) };
   };
   // step 12 점검이 전역 Buffer·crypto에 기대지 않는지 보려고 실행하는 동안 지웁니다.
@@ -105,4 +107,40 @@ test('node:crypto가 randomUUID와 sha256 hex만 될 때도 step 12 점검이 �
   } finally {
     cryptoMock.restore();
   }
+});
+
+const field = (observed, name) => new RegExp(`(?:^| )${name}=(\\S+)`, 'u').exec(observed)?.[1] ?? null;
+
+test('요청한 점검마다 요청을 한 번 보내고, X-Request-Id·X-Aleph-Attack-Id가 observed와 같다', async () => {
+  const { attempts, calls } = await runWithFakeFetch(config);
+  const sent = attempts.filter(item => item.observed !== 'not_run');
+  assert.equal(sent.length, 8, '실제로 요청하는 점검 8개');
+  assert.equal(calls.length, sent.length, '점검 하나당 요청 한 번');
+  for (const item of sent) {
+    const mine = calls.filter(call => call.headers['X-Aleph-Attack-Id'] === item.attackId);
+    assert.equal(mine.length, 1, `${item.attackId}: 요청 ${mine.length}번`);
+    const [call] = mine;
+    assert.match(item.observed, /^requestId=\S+ method=(GET|HEAD) url=\S+ status=\d{3}( error=\S+)? checkedAt=\S+$/u, item.observed);
+    assert.ok(item.observed.length <= 300);
+    assert.equal(field(item.observed, 'requestId'), call.headers['X-Request-Id'], item.attackId);
+    assert.match(call.headers['X-Request-Id'], /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u);
+    assert.equal(field(item.observed, 'method'), call.method);
+    assert.equal(field(item.observed, 'url'), call.url, '요청 주소 전체(쿼리 포함)');
+    assert.equal(field(item.observed, 'status'), '401');
+    assert.ok(!Number.isNaN(Date.parse(field(item.observed, 'checkedAt'))));
+    assert.equal(/Bearer|eyJ/u.test(item.observed), false, '토큰을 적지 않음');
+  }
+  assert.equal(new Set(calls.map(call => call.headers['X-Request-Id'])).size, calls.length, '요청 ID는 모두 다름');
+  const query = attempts.find(item => item.attackId === 'query_appended_note_read');
+  assert.match(field(query.observed, 'url'), /\?x=1$/u);
+  const forged = calls.find(call => call.headers['X-Aleph-Attack-Id'] === 'forged_token_read_other_note');
+  assert.match(forged.headers.Authorization, /^Bearer /u, '가짜 토큰 헤더는 그대로');
+  process.stdout.write(`# observed 예: ${attempts[1].observed}\n`);
+});
+
+test('fetch가 예외를 던지면 그 점검의 observed는 not_run이다', async () => {
+  const { attempts, calls } = await runWithFakeFetch(config, runAttackChecks, { fail: true });
+  assert.equal(calls.length, 8, '요청은 시도했지만 나가지 못함');
+  assert.equal(attempts.length, 18);
+  for (const item of attempts) assert.equal(item.observed, 'not_run', item.attackId);
 });
