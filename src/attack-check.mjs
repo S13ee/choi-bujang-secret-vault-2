@@ -2,7 +2,7 @@
 // Never return tokens, private keys, real names, or note bodies.
 // 실제로 보낸 요청의 결과만 기록합니다. 심판의 판정이 아닙니다.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4, 5, 6, 7, 8].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -21,6 +21,7 @@ export async function runAttackChecks(config) {
   if (config.step === 6) return runStepSixChecks(app, config);
   if (config.step === 7) return runStepSevenChecks(app, config);
   if (config.step === 8) return runStepEightChecks(app, config);
+  if (config.step === 9) return runStepNineChecks(app, config);
   const response = await fetch(new URL('/data.json', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
   });
@@ -218,5 +219,16 @@ async function runStepEightChecks(app, config) {
       observed: '미실행, 화면 밖에서 직접 확인 (실제 계정의 비밀번호·토큰이 필요해 자동 점검하지 않음)' },
     { attackId: 'cross_resource_id', expected: '로그인한 A가 메모 경로에 공지 id, 공지 경로에 메모 id를 넣으면 각각 404',
       observed: '미실행, 직접 확인 (실제 계정의 비밀번호·토큰이 필요해 자동 점검하지 않음)' },
+  ];
+}
+
+// 9단계: 8단계 점검을 그대로 다시 보냅니다. 다량 조회 탐지(src/detect.mjs)의 회수 제안을 집행하는 일과
+// 회수까지 걸린 시간은 반 엔진과 심판이 맡으므로, 학생 점검에서는 보내지 않고 미실행으로 남깁니다.
+// 자기 점검이 배포 주소로 다량 조회를 보내지는 않습니다.
+async function runStepNineChecks(app, config) {
+  return [
+    ...await runStepEightChecks(app, config),
+    { attackId: 'burst_read_revocation', expected: '같은 사용자가 10분 안에 GET 121건 이상이면 burst_read 회수 제안 뒤 그 접속 권한이 회수됨',
+      observed: '미실행, 엔진 연결 필요 (실제 회수와 경과 시간은 심판이 확인. 로컬 가상 사건 연습은 npm run detect:test)' },
   ];
 }
