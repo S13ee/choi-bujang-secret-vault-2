@@ -304,6 +304,95 @@
 - 승인 경로에는 비밀번호 시도 횟수 제한이 없습니다(서명과 1회용 번호가 필요하지만, 등록한 기기로는 계속 시도할 수 있음).
 - `[req11]` 요청 기록은 관찰용이며 아직 켜져 있습니다.
 
+## 12단계: 탈환 작전실을 완성합니다 (진행 중)
+
+현재 단계는 `aleph.config.json`의 `step: 12`입니다. 저장소·배포 주소·`identityProvider`·`originalApiUrl`·`judgeIssuer`·`allowedRoutes`(세 경로)·`restoreRoute`는 11단계와 같습니다. 11단계 저장점 커밋은 `d9a70a0`입니다.
+
+- **응답 기록** (`src/request-log.mjs`, `71afc9b`): 정찰용으로 응답마다 `[res12]` 한 줄(메서드·쿼리 뺀 경로·상태 코드·error·토큰 iss로만 나눈 기록용 로그인 분류·심판 신원 a/b·기기 서명 헤더 유무)을 남깁니다. 이 분류는 권한 판단에 쓰지 않으며, 토큰 원문·sub·aleph_run·서명·헤더 값·본문·쿼리 값·쿠키는 남기지 않습니다.
+- **제출 묶음 점검을 읽기 요청만으로** (`src/attack-check.mjs`의 `runStepTwelveChecks`, `6b59771`·`108c0cf`): 심판이 격리 환경에서 `npm run bundle`을 실행하므로 step 12 점검은 공개 HTTPS 주소에 GET·HEAD만 보냅니다(읽기 8개). 쓰기·로그인·기기 서명·엔진이 필요한 점검 10개는 요청 없이 `observed: "not_run"`이고 이유는 expected에 있습니다. 제출 묶음이 불러오는 파일은 `node:fs`·`node:path`·`node:url`·`node:child_process`·`node:crypto`만 import하고, 해시는 문자열 입력과 `digest('hex')`만 씁니다. `npm run test:bundle`이 가짜 fetch·가짜 node:crypto로 이를 확인합니다.
+
+## 출처
+
+검사한 커밋은 `108c0cf`(12단계 보완: 제출 묶음 해시를 hex 형식으로)입니다. 이 절을 넣은 커밋은 README만 바꿉니다. 「시작 틀 + 학생 수정」은 시작 틀 첫 커밋 `e95d08b` 이후 git log에 학생 커밋이 있는 파일입니다.
+
+### 제공받은 것
+
+| 이름 | 출처 | 내용 |
+|---|---|---|
+| ALEPH SDP 엔진 | 운영 측 제공(이 저장소에 코드 없음) | 신원·기기·경로를 확인한 뒤 학생 판정기 `decide(request)`에 요청을 전달하고, 탐지의 회수 제안을 집행하는 반 엔진입니다. 학생은 엔진을 실행·수정하지 않습니다. |
+| 심판 | 운영 측 제공(`aleph.config.json`의 `judgeIssuer`) | 배포 주소와 공개 저장소를 시험해 단계 판정을 냅니다. 심판 토큰은 `src/verify-login.mjs`가 확인합니다. |
+| 시작 틀 그대로 | 시작 틀 저장소 `ChoiTimo/aleph-defense-starter`(첫 커밋 `e95d08b`) | `src/verify-login.mjs`, `scripts/bundle.mjs`, `scripts/decider-test.mjs`, `scripts/detect-test.mjs`, `scripts/fixture-7.mjs`, `scripts/xdr-run.mjs`, `docs/DECIDER_REQUEST.md`, `docs/DETECT_EVENTS.md`, `AGENTS.md`, `package/`(ARCHITECTURE·DEMO·POLICIES·README·SELF-CHECK·THREAT-INTEL·baseline-functions), `test/package-starter.test.mjs`, `test/r5.test.mjs`, `test/xdr-run.test.mjs`, `xdr/`, `package-lock.json` |
+| 시작 틀 + 학생 수정 | 시작 틀 파일을 학생이 고침 | `scripts/deployment-identity.mjs`(허용 경로·원본 주소·복구 경로 기록), `scripts/build-public.mjs`, `aleph.config.json`, `package.json`, `vercel.json`, `.gitignore`, `public/index.html`, `api/ai.js`·`api/threat-intel.js`(요청 기록 감싸기만, 응답은 시작 틀 그대로), `README.md` |
+| 시작 틀에서 지운 것 | 시작 틀 파일을 학생이 지움 | `data.json`, `public/data.json`(2단계, 공개 메모 제거) |
+
+### 학생이 만든 것
+
+| 부분 | 파일 | 출처 |
+|---|---|---|
+| 판정기 | `src/decider.mjs`(기기 등록·구역·이상 신호 step_up 규칙, `RULE_IDS` 16개) | 시작 틀 뼈대(모두 거부) + 학생 구현 |
+| 탐지 규칙 | `src/detect.mjs`(입력 정리, `burst_read`) | 시작 틀 뼈대(observe만) + 학생 구현 |
+| 접속 앱 | `public/manifest.webmanifest`, `public/icons/`, `public/auth.js`(기기 승인 화면·서명 요청), `public/device-sign.js`, `api/devices/[action].js`, `src/device-auth.mjs`, `src/devices-api.mjs`, `supabase/byteback_vault_devices_step11.sql` | 학생 |
+| 자료실 | `api/notes/index.js`, `api/notes/[id]/index.js`, `api/notes/[id]/restore.js`, `api/notices/index.js`, `api/notices/[id].js`, `api/admin/notices/[id].js`, `api/auth/login.js`·`logout.js`·`refresh.js`, `src/notes-api.mjs`, `src/notices-api.mjs`, `src/auth-api.mjs`, `src/request-log.mjs`, `supabase/`의 SQL 7개 | 학생 |
+| 정책 사본·되돌리기 | `policy/verified-policy.json`·`.sha256`·`restore-log.jsonl`, `scripts/policy-diff.mjs`, `scripts/policy-restore.mjs` | 학생 |
+| 점검 스크립트 | `src/attack-check.mjs` | 시작 틀 뼈대 + 학생 구현 |
+| 시험 | `test/device-sign.test.mjs`, `test/device-routes.test.mjs`, `test/device-screen.test.mjs`, `test/bundle-step12.test.mjs` | 학생 |
+
+비밀값은 저장소에 포장하지 않습니다. 서버 전용 키·공개 키 값은 Vercel 환경변수에만 있고, 메모·계정 정보가 든 `supabase/*.local.sql`, `bundle-notes.json`, `artifacts/`, `.env`는 Git에서 제외됩니다.
+
+## 설치·실행·중지·복구 안내 (검사한 커밋 `108c0cf`)
+
+공통 준비: Node.js 22 이상, `npm ci`. Vercel 환경변수 이름은 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`(서버 전용), `SUPABASE_PUBLISHABLE_KEY`이며 값은 Vercel **Settings → Environment Variables**에 직접 넣습니다(이 문서·Git에는 없음). Supabase SQL Editor 실행 순서(파일 이름만, `.local.sql`은 Git에 없는 로컬 전용):
+
+1. `supabase/byteback_vault_notes.sql` → (로컬) `supabase/byteback_vault_notes.seed.local.sql`
+2. `supabase/byteback_vault_notes_step3.sql`
+3. `supabase/byteback_vault_notes_step4_rls.sql` → (로컬) `supabase/byteback_vault_notes_step4.local.sql`
+4. `supabase/byteback_vault_notes_step5_revoke.sql`
+5. `supabase/byteback_vault_notices_step8.sql` → (로컬) `supabase/byteback_vault_notices_seed.local.sql`
+6. `supabase/byteback_vault_notes_step10_backup.sql`
+7. `supabase/byteback_vault_devices_step11.sql`
+
+### 판정기 (`src/decider.mjs`)
+
+| 순서 | 방법 |
+|---|---|
+| 설치 | `npm ci`. 판정기는 ALEPH SDP 엔진이 `decide(request)`로 부르는 함수라 따로 띄우는 프로세스가 없습니다. |
+| 실행 | 로컬 연습: `npm run decider:test`, `npm run fixture:7`. 실제 판정은 ALEPH SDP 엔진이 실행합니다. |
+| 중지 | 로컬 연습 명령은 끝나면 스스로 종료합니다. 엔진 쪽 중지는 운영 측 몫이며 학생이 할 수 없습니다. |
+| 복구 | `npm run policy:diff`로 안전 정책 사본(`safe-policy-step9-4e3e743`)과 비교 → 차이가 있으면 `npm run policy:restore`(미리보기) → `npm run policy:restore -- --apply`. 기준 커밋 판정기 파일 지문이 사본과 같을 때만 되돌리고 `policy/restore-log.jsonl`에 기록합니다. |
+
+### 탐지 규칙 (`src/detect.mjs`)
+
+| 순서 | 방법 |
+|---|---|
+| 설치 | `npm ci`. 탐지 함수도 ALEPH SDP 엔진이 검증한 사건을 넘겨 부르는 함수입니다. |
+| 실행 | 로컬 연습: `npm run detect:test`. 실제 회수 제안 집행은 ALEPH SDP 엔진이 합니다. |
+| 중지 | 로컬 연습 명령은 끝나면 종료합니다. 엔진 쪽 중지는 운영 측 몫입니다. |
+| 복구 | `git diff 108c0cf -- src/detect.mjs`로 바뀐 점을 확인한 뒤 `git checkout 108c0cf -- src/detect.mjs`로 검사한 커밋의 파일을 되돌립니다(다른 파일은 그대로). |
+
+### 접속 앱 (설치형 웹앱·기기 승인·서명)
+
+| 순서 | 방법 |
+|---|---|
+| 설치 | 위 SQL 7번 실행 → 환경변수 세 개 → GitHub `main`에 push하면 Vercel이 `npm run build`로 배포. 서버 함수는 12개(Vercel Hobby 한도)라 `api/`에 파일을 더하지 않습니다. 브라우저에서는 배포 주소를 열고 필요하면 「앱 설치」를 합니다(설치는 기기 확인이 아님). |
+| 실행 | 배포 주소에서 로그인 → 기기 승인 화면 → 계정 비밀번호 재입력 → 서버가 `approved`라고 답하면 자료실이 열립니다. 로컬 시험: `npm run test:device`. |
+| 중지 | 화면에서 로그아웃(메모리의 기기 키를 버림). 특정 기기의 권한을 거두려면 Supabase에서 그 기기 행의 `status`를 `revoked`로 바꿉니다(회수된 기기는 다시 승인되지 않음). 배포 전체를 멈추려면 Vercel에서 이전 배포로 되돌립니다. |
+| 복구 | Vercel **Deployments**에서 검사한 커밋 `108c0cf`(또는 그 뒤 README만 바뀐 커밋)의 배포를 Promote하고 `/aleph.json`의 commit을 확인합니다. 새로 고침·재로그인 뒤에는 새 기기로 다시 승인합니다(키를 저장하지 않기 때문). |
+
+### 자료실 (메모·공지·복구 API)
+
+| 순서 | 방법 |
+|---|---|
+| 설치 | 위 SQL 1~6번을 순서대로 실행 → 환경변수 세 개 → GitHub `main`에 push(Vercel 자동 배포). |
+| 실행 | 배포 주소에서 로그인하고 기기를 승인하면 메모 목록·추가·수정·삭제, 공지 읽기를 씁니다. 자기 점검: `npm run bundle`(공개 주소에 GET·HEAD만 보냄). |
+| 중지 | Vercel에서 이전 배포로 되돌리거나 프로젝트를 멈춥니다. Supabase 프로젝트가 일시정지되면 서버 함수의 자료 요청이 실패합니다(5단계 때 실제로 겪음). |
+| 복구 | 메모 한 건: `POST /api/notes/:id/restore`(로그인 + 승인된 기기 서명 필요. 화면에 복구 버튼은 없음)가 사본에서 처음 만든 내용으로 되돌립니다. 정책: 위 판정기 복구 순서. 일시정지된 Supabase는 대시보드에서 다시 켭니다. |
+
+### 확인 결과
+
+**로컬 시험 결과(심판 판정 아님)**, 커밋 `108c0cf`에서 실행: `npm run test:device` 13/13, `npm run test:bundle` 3/3, `npm run test:r5` 2/2, `npm run test:package` 3/3, `npm run decider:test` 4줄, `npm run detect:test` 6줄, `npm run fixture:7`(정상 allow·복합 이상 step_up), `npm run policy:diff` 「차이 없음」. 화면의 성공 문구나 로컬 시험은 통과 근거가 아닙니다.
+
+**심판 판정(실제로 받은 단계 점수만)**: 10단계 100점(학생이 전함). 1~9단계·11단계·12단계 점수는 이 README에 **미확인**입니다.
+
 ## 시작 틀의 자동 처리
 
 `vercel.json`은 정적 결과물 `public`을 배포합니다. 빌드 명령 `npm run build`는 Vercel이 제공하는 GitHub 저장소 소유자·이름, 커밋 SHA, 배포 URL을 검증하고 `public/aleph.json`을 생성합니다. 이 값이 없으면 빌드가 실패하므로, 성공한 것처럼 빈 주소를 내보내지 않습니다. `aleph.json`의 내용만으로 저장소 소유권이나 방어 성공을 인정하지 않습니다. 심판이 공개 저장소의 실제 커밋과 배포된 자료를 따로 대조해야 합니다.
