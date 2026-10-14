@@ -36,6 +36,14 @@
     .device-status { margin: 26px 0 0; padding: 14px 18px; border: 1px solid #51667c; border-radius: 14px; background: #1a2a3d; color: #bfd0e5; font-size: 15px; line-height: 1.6; }
     .device-status b { color: #ffe08a; }
     .offline { margin: 16px 0 0; padding: 14px 18px; border: 1px solid #d07384; border-radius: 14px; color: #ffe3e8; background: #612a3544; }
+    .ops-room { overflow-x: auto; }
+    .ops-room h2 { margin: 0 0 12px; font-size: 22px; }
+    .ops-room dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; font-size: 15px; color: #bfd0e5; }
+    .ops-room dt { font-weight: 700; color: #ecf4ff; }
+    .ops-room dd { margin: 0; }
+    .ops-room button { font: inherit; font-weight: 700; padding: 10px 14px; border: 0; border-radius: 10px; background: #8ad8df; color: #101a28; cursor: pointer; }
+    .ops-room table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+    .ops-room th, .ops-room td { border: 1px solid #51667c; padding: 6px 8px; text-align: left; vertical-align: top; word-break: break-all; }
     /* .auth form의 display: grid가 hidden 속성을 덮지 않게 합니다. */
     [hidden] { display: none !important; }
   </style>
@@ -85,6 +93,8 @@
         <p id="note-error" class="auth-error" role="alert"></p>
       </section>
       <ul id="notes" aria-live="polite"></ul>
+      <!-- 12단계 탈환 작전실: 승인된 자료실 안에서만 보입니다. 기록표는 「작전실 점검 실행」을 눌렀을 때 실제 요청으로만 채웁니다. -->
+      <section id="ops-room" class="auth ops-room" aria-label="탈환 작전실"></section>
     </div>
   </main>
   <!-- 메모 목록은 로그인 세션 토큰과 승인된 기기 서명이 필요해서 auth.js가 불러옵니다. -->

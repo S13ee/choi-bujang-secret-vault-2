@@ -8,7 +8,7 @@
     "test:package": "node --test test/package-starter.test.mjs",
     "test:device": "node --test --experimental-test-module-mocks test/device-sign.test.mjs test/device-routes.test.mjs test/device-screen.test.mjs",
     "test:bundle": "node --test --experimental-test-module-mocks test/bundle-step12.test.mjs",
-    "test:ops": "node --test test/ops-records.test.mjs",
+    "test:ops": "node --test test/ops-records.test.mjs test/ops-room.test.mjs",
     "bundle": "node scripts/bundle.mjs",
     "decider:test": "node scripts/decider-test.mjs",
     "detect:test": "node scripts/detect-test.mjs",

@@ -7,6 +7,7 @@
 // 서버가 GET /api/devices/status에서 approved: true라고 답할 때만 자료실을 열고 그때 처음 메모를 불러옵니다.
 // 승인 버튼의 응답만으로는 열지 않습니다. 키·토큰·자료는 브라우저 저장소·쿠키·캐시에 넣지 않습니다.
 import { createDeviceKey, signRequest } from './device-sign.js';
+import { createOpsRoom } from './ops-room.js';
 
 const form = document.querySelector('#login-form');
 const email = document.querySelector('#login-email');
@@ -137,7 +138,17 @@ function setApprovalBadge(serverStatus) {
       : serverStatus === 'revoked' ? '회수됨' : '확인 전';
 }
 
-// 자료실을 닫고 화면에 있던 메모를 지웁니다.
+// 12단계 작전실: GET·HEAD 점검 요청을 같은 기기 키로 서명해 보내고, 응답(Response)을 그대로 돌려줍니다.
+// 경로만 서명하므로 작전실이 붙이는 X-Request-Id·X-Aleph-Attack-Id 헤더는 서명과 상관없습니다. 본문은 보내지 않습니다.
+async function signedRaw(path, { method = 'GET', headers = {} } = {}) {
+  if (!deviceKey || !accessToken || !vaultOpen) throw new Error('승인된 자료실이 열려 있지 않습니다.');
+  if (!['GET', 'HEAD'].includes(method)) throw new Error('작전실은 GET·HEAD만 보냅니다.');
+  const signed = await signRequest(deviceKey, { method, url: path });
+  return fetch(path, { method, cache: 'no-store', headers: { ...headers, Authorization: `Bearer ${accessToken}`, ...signed.headers } });
+}
+const opsRoom = createOpsRoom({ root: document.querySelector('#ops-room'), signedFetch: signedRaw });
+
+// 자료실을 닫고 화면에 있던 메모와 작전실 기록표를 지웁니다.
 function closeVault() {
   vaultOpen = false;
   loadId += 1;
@@ -145,6 +156,7 @@ function closeVault() {
   list.replaceChildren();
   noteMessage.textContent = '';
   noteForm.reset();
+  opsRoom.clear();
 }
 
 function showGate(serverStatus, errorText = '') {
@@ -162,6 +174,7 @@ function openVault() {
   vault.hidden = false;
   showNotesMessage('가상 자료를 불러오는 중입니다.');
   loadNotes();
+  opsRoom.show();
 }
 
 // 서버에 상태를 물어 approved: true일 때만 자료실을 엽니다.
