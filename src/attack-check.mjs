@@ -2,7 +2,7 @@
 // Never return tokens, private keys, real names, or note bodies.
 // 실제로 보낸 요청의 결과만 기록합니다. 심판의 판정이 아닙니다.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4, 5].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5, 6].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -18,6 +18,7 @@ export async function runAttackChecks(config) {
   if (config.step === 3) return runStepThreeChecks(app, config);
   if (config.step === 4) return runStepFourChecks(app, config);
   if (config.step === 5) return runStepFiveChecks(app, config);
+  if (config.step === 6) return runStepSixChecks(app, config);
   const response = await fetch(new URL('/data.json', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
   });
@@ -138,19 +139,9 @@ async function runStepFourChecks(app, config) {
   ];
 }
 
-// 5단계: 화면(/auth.js)에 이미 공개된 publishable key만 배포 주소에서 읽어 originalApiUrl을 직접 조회하고,
-// 로그인 없이 /api/notes를 요청합니다. 키·토큰·응답 본문은 결과에 남기지 않습니다.
-async function publishedKey(app) {
-  try {
-    const response = await fetch(new URL('/auth.js', app), { redirect: 'error', signal: AbortSignal.timeout(10000) });
-    if (!response.ok) return null;
-    return (await response.text()).match(/\bsb_publishable_[A-Za-z0-9_-]{12,200}\b/u)?.[0] ?? null;
-  } catch {
-    return null;
-  }
-}
-
-async function directOriginalRead(config, key) {
+// 5단계: 키·토큰 없이 originalApiUrl을 직접 조회하고, 로그인 없이 /api/notes를 요청합니다.
+// 5단계 보완 뒤 화면 코드에는 Supabase 키가 없으므로 키를 찾거나 보내지 않습니다. 응답 본문은 결과에 남기지 않습니다.
+async function directOriginalRead(config) {
   let url;
   try {
     url = new URL(config.originalApiUrl);
@@ -158,13 +149,13 @@ async function directOriginalRead(config, key) {
     return '미실행 (aleph.config.json의 originalApiUrl이 올바른 주소가 아님)';
   }
   if (url.protocol !== 'https:' || url.search || url.hash) return '미실행 (originalApiUrl이 쿼리 없는 HTTPS 주소가 아님)';
-  if (!key) return '미실행 (배포된 /auth.js에서 publishable key를 찾지 못함)';
   let response;
   try {
     response = await fetch(url, { redirect: 'error', signal: AbortSignal.timeout(10000),
-      headers: { apikey: key, Accept: 'application/json' } });
+      headers: { Accept: 'application/json' } });
   } catch (error) {
-    return `요청 실패 (${error.name})`;
+    // 주소를 찾지 못함(ENOTFOUND) 같은 원인 코드만 남기고, 메모가 보이지 않았다고 판단하지는 않습니다.
+    return `요청 실패, 판단 불가 (${typeof error.cause?.code === 'string' ? error.cause.code.slice(0, 30) : error.name})`;
   }
   let data = null;
   try { data = await response.json(); } catch { /* JSON이 아니면 아래에 형식 없음으로 기록합니다. */ }
@@ -176,15 +167,24 @@ async function directOriginalRead(config, key) {
 }
 
 async function runStepFiveChecks(app, config) {
-  const key = await publishedKey(app);
   return [
-    { attackId: 'original_api_direct_read', expected: '화면에 공개된 publishable key만으로 originalApiUrl을 직접 조회하면 메모 없이 거부',
-      observed: `공개 키로 원본 자료 직접 조회: ${await directOriginalRead(config, key)}` },
+    { attackId: 'original_api_direct_read', expected: '키·토큰 없이 originalApiUrl을 직접 조회하면 메모 없이 거부',
+      observed: `키 없이 원본 자료 직접 조회: ${await directOriginalRead(config)}` },
     { attackId: 'anonymous_list_notes', expected: '로그인 없이 GET /api/notes 요청은 401 JSON으로 거부',
       observed: `로그인 없이 목록 조회: ${await attempt(new URL('/api/notes', app), { method: 'GET' })}` },
     { attackId: 'login_token_original_api_direct_read', expected: '로그인 사용자 토큰으로 originalApiUrl을 직접 조회해도 거부',
       observed: '미실행, 화면에서 직접 확인 (실제 계정의 비밀번호·토큰이 필요해 자동 점검하지 않음)' },
     { attackId: 'login_server_function_crud', expected: '로그인한 A는 서버 함수로 자기 메모 목록·추가·수정·삭제 가능, B 메모는 404',
       observed: '미실행, 화면에서 직접 확인 (실제 계정의 비밀번호·토큰이 필요해 자동 점검하지 않음)' },
+  ];
+}
+
+// 6단계: 5단계 점검을 그대로 다시 보냅니다. 기기 등록 판정은 반 엔진과 판정기(src/decider.mjs) 몫이고,
+// 미등록 기기로 들어오는 공격은 심판이 맡으므로 여기서는 보내지 않고 미실행으로 남깁니다.
+async function runStepSixChecks(app, config) {
+  return [
+    ...await runStepFiveChecks(app, config),
+    { attackId: 'unregistered_device_access', expected: '미등록 기기의 자료실 요청은 deny·device_not_registered로 거부',
+      observed: '미실행, 심판이 확인 (학생 점검에는 미등록 기기로 접속할 수단이 없음. 로컬 가상 요청 연습은 npm run decider:test)' },
   ];
 }
