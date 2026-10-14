@@ -141,3 +141,12 @@ export async function verifyDevice({ request, userId, supabase, now = Date.now()
   if (!checked.ok) return checked;
   return { ok: true, device: { deviceId: data.device_id, status: data.status } };
 }
+
+// 11단계 보호 경로용: 서명 확인(verifyDevice)을 통과하고 기기 상태가 approved일 때만 ok.
+// 등록됐지만 승인 전(pending)이거나 회수된(revoked) 기기는 403 DEVICE_NOT_APPROVED입니다. 학생·심판 토큰 모두 같습니다.
+export async function requireApprovedDevice({ request, userId, supabase, now = Date.now() }) {
+  const checked = await verifyDevice({ request, userId, supabase, now });
+  if (!checked.ok) return checked;
+  if (checked.device.status !== 'approved') return fail(403, 'DEVICE_NOT_APPROVED');
+  return checked;
+}

@@ -12,6 +12,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import config from '../aleph.config.json' with { type: 'json' };
 import { createLoginVerifier } from './verify-login.mjs';
+import { requireApprovedDevice } from './device-auth.mjs';
 
 const TABLE = 'byteback_vault_notes';
 const BACKUPS = 'byteback_vault_note_backups';
@@ -66,6 +67,13 @@ async function authenticate(request, response, allowed) {
     return null;
   }
   supabase ??= createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  // 11단계: 로그인이 확인되면 승인된 기기의 서명을 확인합니다(학생·심판 토큰 모두). 통과해야만 기존 처리를 실행합니다.
+  const device = await requireApprovedDevice({ request, userId: login.userId, supabase });
+  if (!device.ok) {
+    console.warn(`notes: 거부 ${device.error}`);
+    send(response, device.status, { error: device.error });
+    return null;
+  }
   return login;
 }
 

@@ -262,7 +262,7 @@
 | `GET /api/devices/status` | 로그인 + 서명 | `{deviceId, status, approved}`(approved는 status가 approved일 때만 true) |
 | `POST /api/devices/approve` 본문 `{password}` | 로그인 + 서명. 심판 토큰 403 `APPROVAL_REQUIRES_PASSWORD`. 서버가 Supabase에서 확인한 본인 이메일로 비밀번호 재확인, 틀리면 401 `PASSWORD_INVALID`. 회수된 기기 403 `DEVICE_REVOKED` | 그 사용자의 그 기기만 approved·`approved_at` 기록, `{deviceId, status, approved: true}` |
 
-세 경로 모두 다른 사용자의 기기는 보이지도 바뀌지도 않고(403 `DEVICE_NOT_REGISTERED`), 정해진 메서드 외에는 405입니다. 비밀번호는 저장·기록·응답하지 않고, 확인용 세션은 그 세션만 바로 끝냅니다. 승인 경로는 Vercel 환경변수 `SUPABASE_PUBLISHABLE_KEY`도 씁니다. 기존 메모·공지·복구·관리 경로에는 아직 서명 검사를 붙이지 않았습니다.
+세 경로 모두 다른 사용자의 기기는 보이지도 바뀌지도 않고(403 `DEVICE_NOT_REGISTERED`), 정해진 메서드 외에는 405입니다. 비밀번호는 저장·기록·응답하지 않고, 확인용 세션은 그 세션만 바로 끝냅니다. 승인 경로는 Vercel 환경변수 `SUPABASE_PUBLISHABLE_KEY`도 씁니다. **보호 경로의 기기 서명 검사**: `GET·POST /api/notes`, `GET·PUT·DELETE /api/notes/:id`, `POST /api/notes/:id/restore`, `GET /api/notices`, `GET /api/notices/:id`, `PUT /api/admin/notices/:id`는 로그인 확인(없으면 기존 401 `LOGIN_REQUIRED`) 뒤 `requireApprovedDevice`로 기기 서명을 확인하고(서명 오류는 위 401 코드, 다른 사용자의 기기는 403 `DEVICE_NOT_REGISTERED`), 승인되지 않은 기기는 403 `DEVICE_NOT_APPROVED`입니다. 학생·심판 토큰 모두 같으며, 이 검사를 통과해야 기존 처리(소유자 검사·404·409·복구 응답·강사 검사·감사·사본)가 그대로 실행됩니다. 로그인·로그아웃·토큰 갱신과 `/api/devices/*`에는 붙이지 않았습니다. 화면(`public/`)은 아직 서명하지 않으므로, 이 변경이 배포되면 화면의 메모 목록·추가·수정·삭제는 서명을 붙이는 다음 작업 전까지 401로 막힙니다.
 
 ## 시작 틀의 자동 처리
 
