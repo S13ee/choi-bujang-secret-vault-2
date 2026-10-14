@@ -307,6 +307,27 @@ function readOnlyForgedToken(config) {
 // 응답을 받으면 observed에 요청 ID·메서드·요청 주소 전체·상태 코드·error(있을 때만)·확인 시각만 적고,
 // fetch가 예외를 던지면(요청이 나가지 못했거나 응답을 못 받으면) observed는 정확히 "not_run"입니다. 토큰·본문은 적지 않습니다.
 const SAFE_ERROR = /^[A-Za-z0-9_.-]{1,60}$/u;
+// 응답 헤더 중 요청·추적 ID로 보이는 것(이름에 request-id·request_id·trace-id·correlation-id가 들어가거나 x-vercel-id)을
+// 최대 3개 골라 "이름(소문자):값(80자까지)"으로 적습니다. 요청 ID 계열을 먼저, 그다음 x-vercel-id 순서로 고릅니다.
+// 값 안의 공백·쉼표만 _로 바꿔 한 칸으로 읽히게 합니다.
+const RESPONSE_ID_NAME = /request-id|request_id|trace-id|correlation-id/u;
+
+function responseIds(response) {
+  try {
+    const headers = response?.headers;
+    const entries = typeof headers?.entries === 'function' ? [...headers.entries()]
+      : headers && typeof headers === 'object' ? Object.entries(headers) : [];
+    const rank = name => (/request[-_]id/u.test(name) ? 0 : name === 'x-vercel-id' ? 1 : 2);
+    return entries
+      .map(([name, value]) => [String(name).toLowerCase(), String(value ?? '')])
+      .filter(([name, value]) => (RESPONSE_ID_NAME.test(name) || name === 'x-vercel-id') && value)
+      .sort((a, b) => rank(a[0]) - rank(b[0]))
+      .slice(0, 3)
+      .map(([name, value]) => `${name}:${value.replace(/[\s,]/gu, '_').slice(0, 80)}`);
+  } catch {
+    return [];
+  }
+}
 
 async function tracedRequest(attackId, url, { method = 'GET', headers = {} } = {}) {
   if (!['GET', 'HEAD'].includes(method)) return NOT_RUN;
@@ -327,8 +348,11 @@ async function tracedRequest(attackId, url, { method = 'GET', headers = {} } = {
       if (typeof data?.error === 'string' && SAFE_ERROR.test(data.error)) error = data.error;
     } catch { /* JSON이 아니면 error를 적지 않습니다. */ }
   }
-  return [`requestId=${requestId}`, `method=${method}`, `url=${target}`, `status=${response.status}`,
-    ...(error ? [`error=${error}`] : []), `checkedAt=${checkedAt}`].join(' ').slice(0, 300);
+  // 300자를 넘으면 뒤가 잘리므로 ID를 앞에, 주소를 맨 뒤에 둡니다.
+  const ids = responseIds(response);
+  return [`requestId=${requestId}`, ...(ids.length ? [`responseIds=${ids.join(',')}`] : []), `method=${method}`,
+    `status=${response.status}`, ...(error ? [`error=${error}`] : []), `checkedAt=${checkedAt}`, `url=${target}`]
+    .join(' ').slice(0, 300);
 }
 
 function originalApiTarget(config) {

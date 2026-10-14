@@ -4,6 +4,7 @@
 // 남기지 않는 것: 본문, 토큰, 쿠키, authorization 값, 쿼리 값, 그 밖의 모든 헤더 값.
 // 기록은 동기로 한 번만 하고 원래 함수를 그대로 부릅니다. 기록이 실패해도 응답과 동작은 바뀌지 않습니다.
 // 12단계 탐색: 응답을 보낼 때 [res12] 한 줄을 더 남깁니다(아래 logResponse).
+import { randomUUID } from 'node:crypto';
 import config from '../aleph.config.json' with { type: 'json' };
 
 const headerValue = value => (Array.isArray(value) ? value.join(', ') : typeof value === 'string' ? value : null);
@@ -60,11 +61,24 @@ export function classifyLogin(authorization) {
 
 // [res12] 한 줄: 메서드, 경로(쿼리 값 뺌), 응답 상태 코드, 응답 JSON의 error(있을 때만), 로그인 분류, 심판 신원,
 // 기기 서명 헤더 4개가 모두 있었는지. 헤더 값·본문·쿼리 값·쿠키는 남기지 않습니다.
-export function logResponse(request, status, body) {
+// 12단계: 모든 api 응답에 X-Request-Id 응답 헤더를 넣습니다. 요청에 UUID 형식의 x-request-id가 있으면 그 값을 그대로,
+// 없거나 형식이 아니면 randomUUID로 새로 만듭니다. 응답 상태와 본문은 바꾸지 않습니다.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+const ATTACK_ID = /^[a-z0-9_.-]{1,80}$/u;
+
+export function responseRequestId(request) {
+  const given = headerOf(request, 'x-request-id');
+  return typeof given === 'string' && UUID.test(given) ? given : randomUUID();
+}
+
+export function logResponse(request, status, body, requestId = null) {
   try {
     const { login, identity } = classifyLogin(headerOf(request, 'authorization'));
+    const attackId = headerOf(request, 'x-aleph-attack-id');
     const entry = {
       method: typeof request?.method === 'string' ? request.method : null,
+      ...(requestId ? { requestId } : {}),
+      ...(typeof attackId === 'string' && ATTACK_ID.test(attackId) ? { attackId } : {}),
       path: pathOf(request),
       status: Number.isInteger(status) ? status : null,
       ...(body && typeof body === 'object' && typeof body.error === 'string' ? { error: body.error.slice(0, 80) } : {}),
@@ -82,7 +96,7 @@ export function logResponse(request, status, body) {
 }
 
 // 응답 객체의 status·json을 그대로 부르면서 상태 코드와 error만 옆에서 읽습니다. 응답 내용은 바꾸지 않습니다.
-function watchResponse(request, response) {
+function watchResponse(request, response, requestId) {
   if (!response || typeof response !== 'object' || typeof response.json !== 'function') return;
   let status = null;
   let logged = false;
@@ -98,7 +112,7 @@ function watchResponse(request, response) {
     const result = originalJson.apply(this, arguments);
     if (!logged) {
       logged = true;
-      logResponse(request, status ?? response.statusCode, body);
+      logResponse(request, status ?? response.statusCode, body, requestId);
     }
     return result;
   };
@@ -107,7 +121,12 @@ function watchResponse(request, response) {
 export function withRequestLog(handler) {
   return function loggedHandler(request, response) {
     logRequest(request);
-    try { watchResponse(request, response); } catch { /* 감싸기 실패는 무시합니다. */ }
+    let requestId = null;
+    try {
+      requestId = responseRequestId(request);
+      if (typeof response?.setHeader === 'function') response.setHeader('X-Request-Id', requestId);
+    } catch { /* 응답 헤더를 못 붙여도 동작은 그대로입니다. */ }
+    try { watchResponse(request, response, requestId); } catch { /* 감싸기 실패는 무시합니다. */ }
     return handler(request, response);
   };
 }

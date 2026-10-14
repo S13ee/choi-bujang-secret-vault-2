@@ -120,7 +120,7 @@ test('요청한 점검마다 요청을 한 번 보내고, X-Request-Id·X-Aleph-
     const mine = calls.filter(call => call.headers['X-Aleph-Attack-Id'] === item.attackId);
     assert.equal(mine.length, 1, `${item.attackId}: 요청 ${mine.length}번`);
     const [call] = mine;
-    assert.match(item.observed, /^requestId=\S+ method=(GET|HEAD) url=\S+ status=\d{3}( error=\S+)? checkedAt=\S+$/u, item.observed);
+    assert.match(item.observed, /^requestId=\S+( responseIds=\S+)? method=(GET|HEAD) status=\d{3}( error=\S+)? checkedAt=\S+ url=\S+$/u, item.observed);
     assert.ok(item.observed.length <= 300);
     assert.equal(field(item.observed, 'requestId'), call.headers['X-Request-Id'], item.attackId);
     assert.match(call.headers['X-Request-Id'], /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u);
@@ -143,4 +143,72 @@ test('fetch가 예외를 던지면 그 점검의 observed는 not_run이다', asy
   assert.equal(calls.length, 8, '요청은 시도했지만 나가지 못함');
   assert.equal(attempts.length, 18);
   for (const item of attempts) assert.equal(item.observed, 'not_run', item.attackId);
+});
+
+test('응답 헤더의 x-request-id·x-vercel-id가 observed에 들어가고, 주소가 길어도 ID는 잘리지 않는다', async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), headers: { ...(init.headers ?? {}) } });
+    const requestId = init.headers['X-Request-Id'];
+    const headers = new Headers({ 'X-Request-Id': requestId, 'X-Vercel-Id': 'icn1::fake-vercel-id-123', 'Content-Type': 'application/json' });
+    return { ok: false, status: 401, headers, json: async () => ({ error: 'LOGIN_REQUIRED' }) };
+  };
+  try {
+    const attempts = await runAttackChecks(config);
+    const sent = attempts.filter(item => item.observed !== 'not_run');
+    assert.equal(sent.length, 8);
+    for (const item of sent) {
+      const call = calls.find(c => c.headers['X-Aleph-Attack-Id'] === item.attackId);
+      assert.equal(field(item.observed, 'responseIds'), `x-request-id:${call.headers['X-Request-Id']},x-vercel-id:icn1::fake-vercel-id-123`, item.attackId);
+    }
+    // 아주 긴 주소(원본 API 경로를 400자 넘게): 300자에서 잘려도 앞의 requestId·responseIds는 온전해야 합니다.
+    const { runAttackChecks: run2 } = await import('../src/attack-check.mjs?long-url');
+    const longConfig = { ...config, originalApiUrl: `${config.originalApiUrl.replace(/\/[^/]+$/u, '')}/${'v'.repeat(400)}` };
+    const longAttempts = await run2(longConfig);
+    const longItem = longAttempts.find(item => item.attackId === 'original_api_direct_read');
+    assert.equal(longItem.observed.length, 300, '300자에서 잘림');
+    const longCall = calls.at(-8);
+    assert.equal(field(longItem.observed, 'requestId'), longCall.headers['X-Request-Id'], 'requestId는 온전함');
+    assert.equal(field(longItem.observed, 'responseIds'), `x-request-id:${longCall.headers['X-Request-Id']},x-vercel-id:icn1::fake-vercel-id-123`, 'responseIds는 온전함');
+    assert.match(longItem.observed, / method=GET status=401 error=LOGIN_REQUIRED checkedAt=\S+ url=https:\/\//u);
+    process.stdout.write(`# 응답 ID 포함 observed 예: ${sent[1].observed.slice(0, 160)}…\n`);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('서버는 요청의 UUID x-request-id를 응답 헤더로 돌려주고, 없거나 이상하면 새 UUID를 준다', async () => {
+  const { default: handler } = await import('../api/ai.js');
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
+  const logs = [];
+  const originalLog = console.log;
+  console.log = (...args) => logs.push(args.join(' '));
+  const call = headers => {
+    const response = { headers: {}, setHeader(name, value) { this.headers[name.toLowerCase()] = value; },
+      status(code) { this.code = code; return this; }, json(body) { this.body = body; return this; } };
+    handler({ method: 'GET', url: '/api/ai?token=FAKEQUERY', headers }, response);
+    return response;
+  };
+  try {
+    const given = 'a1b2c3d4-0000-4000-8000-00000000abcd';
+    const same = call({ 'x-request-id': given, 'x-aleph-attack-id': 'anonymous_list_notes', authorization: 'Bearer FAKE-TKN' });
+    assert.equal(same.headers['x-request-id'], given);
+    assert.equal(same.code, 501);
+    assert.deepEqual(same.body, { error: 'AI_PROXY_NOT_IMPLEMENTED' }, '응답 본문은 그대로');
+    const odd = call({ 'x-request-id': 'not-a-uuid<script>', 'x-aleph-attack-id': 'BAD ID!' });
+    assert.match(odd.headers['x-request-id'], UUID);
+    assert.notEqual(odd.headers['x-request-id'], 'not-a-uuid<script>');
+    const none = call({});
+    assert.match(none.headers['x-request-id'], UUID);
+    const res12 = logs.filter(line => line.startsWith('[res12]')).map(line => JSON.parse(line.slice(8)));
+    assert.equal(res12[0].requestId, given);
+    assert.equal(res12[0].attackId, 'anonymous_list_notes');
+    assert.equal(res12[1].requestId, odd.headers['x-request-id']);
+    assert.equal('attackId' in res12[1], false, '이상한 attackId는 남기지 않음');
+    const all = logs.join('\n');
+    assert.equal(/FAKE-TKN|FAKEQUERY|<script>/u.test(all), false, '토큰·쿼리·이상한 값은 남기지 않음');
+  } finally {
+    console.log = originalLog;
+  }
 });
