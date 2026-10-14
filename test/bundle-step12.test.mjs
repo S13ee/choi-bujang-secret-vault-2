@@ -120,7 +120,13 @@ test('node:crypto가 randomUUID와 sha256 hex만 될 때도 step 12 점검이 �
   }
 });
 
-const field = (observed, name) => new RegExp(`(?:^| )${name}=(\\S+)`, 'u').exec(observed)?.[1] ?? null;
+// observed 형식: "<메서드> <쿼리 포함 전체 주소> → HTTP <실제 받은 상태>[ <error>] · requestId=<우리 ID> · checkedAt=<ISO 시각>"
+const OBSERVED = /^(GET|HEAD) (https:\/\/\S+) → HTTP (\d{3})(?: ([A-Za-z0-9_.-]{1,60}))?(?: · requestId=(\S+))?(?: · checkedAt=(\S+))?$/u;
+const parse = observed => {
+  const match = OBSERVED.exec(observed);
+  return match ? { method: match[1], url: match[2], status: Number(match[3]), error: match[4] ?? null,
+    requestId: match[5] ?? null, checkedAt: match[6] ?? null } : null;
+};
 
 test('요청한 점검마다 요청을 한 번 보내고, X-Request-Id·X-Aleph-Attack-Id가 observed와 같다', async () => {
   const { attempts, calls } = await runWithFakeFetch(config);
@@ -131,19 +137,19 @@ test('요청한 점검마다 요청을 한 번 보내고, X-Request-Id·X-Aleph-
     const mine = calls.filter(call => call.headers['X-Aleph-Attack-Id'] === item.attackId);
     assert.equal(mine.length, 1, `${item.attackId}: 요청 ${mine.length}번`);
     const [call] = mine;
-    assert.match(item.observed, /^requestId=\S+( responseIds=\S+)? method=(GET|HEAD) status=\d{3}( error=\S+)? checkedAt=\S+ url=\S+$/u, item.observed);
+    const parsed = parse(item.observed);
+    assert.ok(parsed, `${item.attackId}: 형식 ${item.observed}`);
+    assert.ok(item.observed.startsWith(`${call.method} ${call.url} → HTTP `), '메서드와 전체 주소를 맨 앞에');
     assert.ok(item.observed.length <= 300);
-    assert.equal(field(item.observed, 'requestId'), call.headers['X-Request-Id'], item.attackId);
+    assert.equal(parsed.requestId, call.headers['X-Request-Id'], item.attackId);
     assert.match(call.headers['X-Request-Id'], /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u);
-    assert.equal(field(item.observed, 'method'), call.method);
-    assert.equal(field(item.observed, 'url'), call.url, '요청 주소 전체(쿼리 포함)');
-    assert.equal(field(item.observed, 'status'), '401');
-    assert.ok(!Number.isNaN(Date.parse(field(item.observed, 'checkedAt'))));
-    assert.equal(/Bearer|eyJ/u.test(item.observed), false, '토큰을 적지 않음');
+    assert.equal(parsed.status, 401);
+    assert.ok(!Number.isNaN(Date.parse(parsed.checkedAt)));
+    assert.equal(/Bearer|eyJ|responseIds/u.test(item.observed), false, '토큰·responseIds를 적지 않음');
   }
   assert.equal(new Set(calls.map(call => call.headers['X-Request-Id'])).size, calls.length, '요청 ID는 모두 다름');
   const query = attempts.find(item => item.attackId === 'query_appended_note_read');
-  assert.match(field(query.observed, 'url'), /\?x=1$/u);
+  assert.match(parse(query.observed).url, /\?x=1$/u);
   const forged = calls.find(call => call.headers['X-Aleph-Attack-Id'] === 'forged_token_read_other_note');
   assert.match(forged.headers.Authorization, /^Bearer /u, '가짜 토큰 헤더는 그대로');
   process.stdout.write(`# observed 예: ${attempts[1].observed}\n`);
@@ -156,16 +162,18 @@ test('fetch가 예외를 던지면 그 점검의 observed는 not_run이다', asy
   for (const item of attempts) assert.equal(item.observed, 'not_run', item.attackId);
 });
 
-test('응답 ID: requestId와 같은 값은 빼고, 다른 요청 ID 헤더를 x-vercel-id보다 먼저, 주소는 끝까지 넣고 300자 이하', async () => {
-  const VERCEL = 'icn1::iad1::ghxr7-1791958053772-2c598fc55cef';
-  const ALEPH = 'aleph-fake-req-0001';
+test('observed는 "<메서드> https://…"로 시작하고 HTTP 상태는 실제로 받은 값이며 300자 이하, 넘치면 checkedAt·requestId 순서로 뺀다', async () => {
+  // 점검마다 다른 상태를 돌려줘, observed의 숫자가 실제로 받은 response.status인지 확인합니다.
+  const STATUS = { original_api_direct_read: 403, anonymous_list_notes: 401, anonymous_read_other_note: 404,
+    forged_token_read_other_note: 401, query_appended_note_read: 400, anonymous_list_notices: 401,
+    anonymous_device_status: 429, public_data_json_head: 404 };
   const originalFetch = globalThis.fetch;
   const calls = [];
   globalThis.fetch = async (url, init = {}) => {
-    calls.push({ url: String(url), headers: { ...(init.headers ?? {}) } });
-    // 서버처럼 우리 X-Request-Id를 그대로 돌려주고, 심판 장치가 붙였을 수 있는 다른 이름의 요청 ID와 x-vercel-id를 함께 줍니다.
-    const headers = new Headers({ 'X-Vercel-Id': VERCEL, 'X-Request-Id': init.headers['X-Request-Id'], 'X-Aleph-Request-Id': ALEPH });
-    return { ok: false, status: 401, headers, json: async () => ({ error: 'LOGIN_REQUIRED' }) };
+    const attackId = init.headers['X-Aleph-Attack-Id'];
+    calls.push({ url: String(url), method: init.method, headers: { ...init.headers } });
+    const status = STATUS[attackId] ?? 500;
+    return { ok: false, status, headers: new Headers({ 'X-Vercel-Id': 'icn1::fake' }), json: async () => ({ error: `CODE_${status}` }) };
   };
   try {
     const attempts = await runAttackChecks(config);
@@ -173,48 +181,33 @@ test('응답 ID: requestId와 같은 값은 빼고, 다른 요청 ID 헤더를 x
     assert.equal(sent.length, 8);
     for (const item of sent) {
       const call = calls.find(c => c.headers['X-Aleph-Attack-Id'] === item.attackId);
-      const requestId = call.headers['X-Request-Id'];
+      const parsed = parse(item.observed);
+      assert.match(item.observed, /^(GET|HEAD) https:\/\//u, item.attackId);
+      assert.match(item.observed, / → HTTP \d{3}/u);
+      assert.equal(parsed.status, STATUS[item.attackId], `${item.attackId}: 받은 상태 그대로`);
+      assert.equal(parsed.url, call.url);
+      assert.equal(parsed.error, call.method === 'HEAD' ? null : `CODE_${STATUS[item.attackId]}`, 'HEAD는 본문을 읽지 않음');
       assert.ok(item.observed.length <= 300, `${item.attackId}: ${item.observed.length}자`);
-      assert.equal(field(item.observed, 'url'), call.url, `${item.attackId}: 주소 전체`);
-      assert.ok(item.observed.endsWith(` url=${call.url}`), item.attackId);
-      assert.equal(field(item.observed, 'requestId'), requestId);
-      assert.equal(item.observed.includes(`x-request-id:${requestId}`), false, `${item.attackId}: requestId와 같은 x-request-id는 빼야 함`);
-      assert.ok(field(item.observed, 'method') && field(item.observed, 'status') && field(item.observed, 'checkedAt'));
-      const ids = field(item.observed, 'responseIds') ?? '';
-      assert.ok(ids.startsWith(`x-aleph-request-id:${ALEPH}`), `${item.attackId}: 다른 요청 ID가 먼저 (${ids})`);
-      if (ids.includes('x-vercel-id')) assert.ok(ids.indexOf('x-aleph-request-id') < ids.indexOf('x-vercel-id'));
     }
-    const query = sent.find(item => item.attackId === 'query_appended_note_read');
-    assert.match(field(query.observed, 'url'), /\?x=1$/u);
-    // 주소가 길어질수록 1) x-vercel-id, 2) error, 3) responseIds 전체 순서로 빠지고, 주소·requestId·method·status·checkedAt은 남아야 합니다.
+    // 주소가 길어지면 checkedAt → requestId 순서로 빠지고, 메서드·주소·HTTP 상태는 그대로 남습니다.
     const base = config.originalApiUrl.replace(/\/[^/]+$/u, '');
-    const seen = new Set();
-    for (const extra of [40, 80, 110, 140]) {
-      calls.length = 0;
+    const stages = [];
+    for (const extra of [40, 150, 200]) {
       const longUrl = `${base}/${'v'.repeat(extra)}`;
       const item = (await runAttackChecks({ ...config, originalApiUrl: longUrl })).find(a => a.attackId === 'original_api_direct_read');
-      const call = calls.find(c => c.headers['X-Aleph-Attack-Id'] === 'original_api_direct_read');
+      const parsed = parse(item.observed);
       assert.ok(item.observed.length <= 300, `${extra}: ${item.observed.length}자`);
-      assert.equal(field(item.observed, 'url'), longUrl);
-      assert.equal(field(item.observed, 'requestId'), call.headers['X-Request-Id']);
-      assert.ok(field(item.observed, 'method') && field(item.observed, 'status') && field(item.observed, 'checkedAt'));
-      const hasVercel = item.observed.includes('x-vercel-id:');
-      const hasError = item.observed.includes(' error=');
-      const hasIds = item.observed.includes(' responseIds=');
-      if (hasError) assert.ok(hasIds, '`error`가 있으면 responseIds도 있어야 함(빼는 순서)');
-      if (hasVercel) assert.ok(hasError, 'x-vercel-id가 있으면 error도 있어야 함(빼는 순서)');
-      seen.add(`${hasIds ? 'ids' : '-'}/${hasVercel ? 'vercel' : '-'}/${hasError ? 'error' : '-'}`);
+      assert.equal(parsed.url, longUrl);
+      assert.equal(parsed.status, 403);
+      if (!parsed.requestId) assert.equal(parsed.checkedAt, null, 'requestId가 빠졌으면 checkedAt도 빠져 있어야 함(빼는 순서)');
+      stages.push(`${parsed.requestId ? 'requestId' : '-'}/${parsed.checkedAt ? 'checkedAt' : '-'}`);
     }
-    assert.ok(seen.size >= 3, `빼는 단계가 여러 개 나와야 함: ${[...seen].join(' ')}`);
-    // 꼭 남길 항목만으로도 300자를 넘는 주소(약 192자 초과)는 자르지 않고 그대로 둡니다(이 경우는 알려야 할 예외).
-    const tooLong = `${base}/${'v'.repeat(150)}`;
+    assert.deepEqual(stages, ['requestId/checkedAt', 'requestId/-', '-/-']);
+    // 메서드·주소·HTTP 상태만으로도 300자를 넘는 주소는 자르지 않고 그대로 둡니다(알려야 할 예외).
+    const tooLong = `${base}/${'v'.repeat(260)}`;
     const over = (await runAttackChecks({ ...config, originalApiUrl: tooLong })).find(a => a.attackId === 'original_api_direct_read');
-    assert.equal(field(over.observed, 'url'), tooLong, '넘쳐도 주소는 자르지 않음');
-    assert.equal(over.observed.includes(' responseIds=') || over.observed.includes(' error='), false);
-    process.stdout.write(`# 예외: 주소 ${tooLong.length}자이면 observed ${over.observed.length}자(300자 초과, 자르지 않음)
-`);
-    process.stdout.write(`# 길이별 남은 항목: ${[...seen].join(' → ')}\n`);
-    process.stdout.write(`# observed 예(${query.observed.length}자): ${query.observed}\n`);
+    assert.equal(over.observed, `GET ${tooLong} → HTTP 403 CODE_403`);
+    process.stdout.write(`# 길이별 남은 항목: ${stages.join(' → ')} · 예외: 주소 ${tooLong.length}자이면 observed ${over.observed.length}자(자르지 않음)\n`);
   } finally {
     globalThis.fetch = originalFetch;
   }

@@ -308,29 +308,6 @@ function readOnlyForgedToken(config) {
 // 응답을 받으면 observed에 요청 ID·메서드·요청 주소 전체·상태 코드·error(있을 때만)·확인 시각만 적고,
 // fetch가 예외를 던지면(요청이 나가지 못했거나 응답을 못 받으면) observed는 정확히 "not_run"입니다. 토큰·본문은 적지 않습니다.
 const SAFE_ERROR = /^[A-Za-z0-9_.-]{1,60}$/u;
-// 응답 헤더 중 요청·추적 ID로 보이는 것(이름에 request-id·request_id·trace-id·correlation-id가 들어가거나 x-vercel-id)을
-// 최대 3개 골라 "이름(소문자):값(80자까지)"으로 적습니다. 요청 ID 계열을 먼저, 그다음 x-vercel-id 순서로 고릅니다.
-// 값 안의 공백·쉼표만 _로 바꿔 한 칸으로 읽히게 합니다.
-const RESPONSE_ID_NAME = /request-id|request_id|trace-id|correlation-id/u;
-
-// 값이 우리가 만든 requestId와 똑같은 항목은 이미 requestId로 적었으므로 뺍니다. [이름, 값] 쌍을 돌려줍니다.
-function responseIds(response, requestId) {
-  try {
-    const headers = response?.headers;
-    const entries = typeof headers?.entries === 'function' ? [...headers.entries()]
-      : headers && typeof headers === 'object' ? Object.entries(headers) : [];
-    const rank = name => (/request[-_]id/u.test(name) ? 0 : name === 'x-vercel-id' ? 1 : 2);
-    return entries
-      .map(([name, value]) => [String(name).toLowerCase(), String(value ?? '')])
-      .filter(([name, value]) => (RESPONSE_ID_NAME.test(name) || name === 'x-vercel-id') && value && value !== requestId)
-      .sort((a, b) => rank(a[0]) - rank(b[0]))
-      .slice(0, 3)
-      .map(([name, value]) => [name, value.replace(/[\s,]/gu, '_').slice(0, 80)]);
-  } catch {
-    return [];
-  }
-}
-
 async function tracedRequest(attackId, url, { method = 'GET', headers = {} } = {}) {
   if (!['GET', 'HEAD'].includes(method)) return NOT_RUN;
   const requestId = randomUUID();
@@ -350,17 +327,12 @@ async function tracedRequest(attackId, url, { method = 'GET', headers = {} } = {
       if (typeof data?.error === 'string' && SAFE_ERROR.test(data.error)) error = data.error;
     } catch { /* JSON이 아니면 error를 적지 않습니다. */ }
   }
-  // 순서: requestId → responseIds → method → status → error → checkedAt → url. 뒤를 자르지 않고,
-  // 300자를 넘으면 1) responseIds의 x-vercel-id, 2) error, 3) responseIds 전체 순서로 빼서 맞춥니다.
-  // requestId·method·status·checkedAt·url(쿼리 포함 전체 주소)은 빼거나 자르지 않습니다.
-  const ids = responseIds(response, requestId);
-  const withoutVercel = ids.filter(([name]) => name !== 'x-vercel-id');
-  const build = (useIds, withError) => [`requestId=${requestId}`,
-    ...(useIds.length ? [`responseIds=${useIds.map(([name, value]) => `${name}:${value}`).join(',')}`] : []),
-    `method=${method}`, `status=${response.status}`, ...(withError && error ? [`error=${error}`] : []),
-    `checkedAt=${checkedAt}`, `url=${target}`].join(' ');
-  const choices = [build(ids, true), build(withoutVercel, true), build(withoutVercel, false), build([], false)];
-  return choices.find(text => text.length <= 300) ?? choices.at(-1);
+  // 형식: "<메서드> <쿼리 포함 전체 주소> → HTTP <실제 받은 상태>[ <error>] · requestId=<우리 ID> · checkedAt=<ISO 시각>".
+  // 상태는 response.status 그대로 적습니다. 300자를 넘으면 checkedAt, requestId 순서로 빼고,
+  // 메서드·주소·HTTP 상태(와 error)는 빼거나 자르지 않습니다.
+  const head = `${method} ${target} → HTTP ${response.status}${error ? ` ${error}` : ''}`;
+  const choices = [`${head} · requestId=${requestId} · checkedAt=${checkedAt}`, `${head} · requestId=${requestId}`, head];
+  return choices.find(text => text.length <= 300) ?? head;
 }
 
 function originalApiTarget(config) {

@@ -6,24 +6,18 @@
 
 export const RECORDS_SCHEMA = 'aleph.ops.records.v1';
 const NOT_RUN = 'not_run';
-const FIELDS = ['requestId', 'responseIds', 'method', 'status', 'error', 'checkedAt', 'url'];
 const SECRET = /-----BEGIN [A-Z ]*PRIVATE KEY-----|\bBearer\s+[A-Za-z0-9._~+/-]{16,}|\bsb_secret_[A-Za-z0-9_-]{12,}|\bsb_publishable_[A-Za-z0-9_-]{12,}|\bsk-[A-Za-z0-9_-]{20,}|\beyJ[A-Za-z0-9_-]{12,}\.eyJ[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{8,}|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/iu;
 
-// "requestId=… responseIds=… method=… status=… error=… checkedAt=… url=…"를 칸으로 나눕니다(url은 맨 뒤 전체).
+// "<메서드> <주소> → HTTP <상태>[ <error>] · requestId=<ID> · checkedAt=<ISO>"를 칸으로 나눕니다.
+// requestId·checkedAt은 300자를 넘을 때 빠질 수 있으므로 없으면 비워 둡니다(채우지 않음).
+const OBSERVED = /^(GET|HEAD) (https:\/\/\S+) → HTTP (\d{3})(?: ([A-Za-z0-9_.-]{1,60}))?(?: · requestId=(\S+))?(?: · checkedAt=(\S+))?$/u;
+
 export function parseObserved(observed) {
   if (typeof observed !== 'string' || observed === NOT_RUN) return null;
-  const urlAt = observed.indexOf(' url=');
-  if (urlAt < 0) return null;
-  const parsed = { url: observed.slice(urlAt + 5) };
-  for (const part of observed.slice(0, urlAt).split(' ')) {
-    const at = part.indexOf('=');
-    const name = part.slice(0, at);
-    if (at > 0 && FIELDS.includes(name)) parsed[name] = part.slice(at + 1);
-  }
-  const status = Number(parsed.status);
-  if (!parsed.requestId || !parsed.method || !Number.isInteger(status) || !parsed.checkedAt || !parsed.url) return null;
-  return { requestId: parsed.requestId, responseIds: parsed.responseIds ?? null, method: parsed.method, status,
-    error: parsed.error ?? null, checkedAt: parsed.checkedAt, url: parsed.url };
+  const match = OBSERVED.exec(observed);
+  if (!match) return null;
+  return { method: match[1], url: match[2], status: Number(match[3]), error: match[4] ?? null,
+    requestId: match[5] ?? null, checkedAt: match[6] ?? null, responseIds: null };
 }
 
 function notRunReason(row, source) {

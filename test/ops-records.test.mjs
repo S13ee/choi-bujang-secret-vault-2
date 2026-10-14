@@ -80,6 +80,6 @@ test('비밀값이 섞이면 기록표를 만들지 않는다', () => {
   // 소스에 연락처 모양이 남지 않도록 실행할 때 가짜 이메일을 이어 붙입니다.
   const fakeContact = ['someone', 'example.com'].join('@');
   const leak = ids.map((attackId, index) => ({ attackId, observed: index === 0
-    ? `requestId=r1 method=GET status=401 checkedAt=2026-10-14T00:00:00.000Z url=https://x.example/a?e=${fakeContact}` : 'not_run' }));
+    ? `GET https://x.example/a?e=${fakeContact} → HTTP 401 · requestId=r1 · checkedAt=2026-10-14T00:00:00.000Z` : 'not_run' }));
   assert.throws(() => buildRecordTable({ catalog: OPS_CATALOG, attempts: leak, source: 'bundle', commit: 'x', publicAppUrl: '', generatedAt: '' }), /비밀값/u);
 });
