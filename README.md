@@ -12,7 +12,7 @@
 
 ## 2단계: 자료를 코드 밖으로 옮김 (저장점)
 
-2단계 저장점 커밋은 `5c32482`입니다. 현재 상태는 아래 "5단계"~"10단계" 절을 보세요.
+2단계 저장점 커밋은 `5c32482`입니다. 현재 상태는 아래 "5단계"~"11단계" 절을 보세요.
 
 - 가상 메모는 Supabase 테이블 `byteback_vault_notes`에 있습니다. 테이블 생성·RLS·권한 SQL은 `supabase/byteback_vault_notes.sql`입니다. RLS가 켜져 있고 `anon`·`authenticated`에는 권한이 없습니다. 이 SQL은 이미 Supabase에서 실행했습니다.
 - 메모 네 건을 넣은 insert는 Git에서 제외된 로컬 전용 파일 `supabase/byteback_vault_notes.seed.local.sql`에만 있습니다(`.gitignore`의 `supabase/*.local.sql`). 저장소에는 메모 본문이 없으며, 이 insert는 이미 실행했으므로 다시 실행하면 메모가 중복됩니다.
@@ -51,7 +51,7 @@
 
 ## 3단계: 진짜 로그인을 붙임 (저장점)
 
-3단계 저장점 커밋은 `b596498`입니다. 현재 상태는 아래 "5단계"~"10단계" 절을 보세요.
+3단계 저장점 커밋은 `b596498`입니다. 현재 상태는 아래 "5단계"~"11단계" 절을 보세요.
 
 - **로그인 화면**: `public/auth.js`가 공식 `@supabase/supabase-js`(2.117.2)로 Supabase Auth 이메일·비밀번호 로그인·로그아웃을 처리합니다. 화면 코드에는 공개용 Project URL과 publishable key만 있습니다. 로그인에 실패하면 이유를 화면에 보여 주고, 로그인하면 입력 칸이 숨겨집니다.
 - **토큰 검사**: 자료 API는 `Authorization: Bearer <토큰>`을 시작 틀의 `src/verify-login.mjs`로 검사합니다. 브라우저가 보낸 `userId`·`role`·`owner_id`는 믿지 않습니다. 토큰이 없거나 검사에 실패하면 자료 없이 `401` JSON(`LOGIN_REQUIRED`)으로 거부합니다.
@@ -69,7 +69,7 @@
 
 ## 4단계: 로그인해도 내 자료만 보이게 함 (저장점)
 
-4단계 저장점 커밋은 `458c61e`입니다. 현재 상태는 아래 "5단계"~"10단계" 절을 보세요.
+4단계 저장점 커밋은 `458c61e`입니다. 현재 상태는 아래 "5단계"~"11단계" 절을 보세요.
 
 - **API 소유자 검사** (`src/notes-api.mjs`): 모든 읽기·추가·수정·삭제가 `src/verify-login.mjs`로 검증된 사용자 ID만 씁니다. URL·본문의 `owner_id`·`userId`·`role`은 읽지 않습니다.
   - 목록 `GET /api/notes`와 한 건 `GET /api/notes/:id`: `owner_id`가 본인인 행만
@@ -98,11 +98,11 @@
 
 **`npm run test:package`:** 3개 모두 통과하지만, 운영 측 기준표가 새 함수를 인정했다는 뜻은 아닙니다. 이 테스트는 `api/` 맨 위의 `.js` 파일만 기준표와 비교하므로 하위 폴더 `api/notes/`의 함수를 보지 않습니다. 운영 측 파일(`package/baseline-functions.json`, `test/package-starter.test.mjs`)은 바꾸지 않았습니다.
 
-다시 실행하는 방법: `npm ci` → `npm run build -- --local`(로컬 빌드 확인) → `npm run test:r5` → `npm run decider:test`(6·7단계) → `npm run fixture:7`(7단계) → `npm run detect:test`(9단계) → `npm run policy:diff`(10단계). 로그인과 메모 화면은 Vercel 배포에서만 확인할 수 있으며, Vercel 환경변수 `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, 서버 전용 `SUPABASE_SECRET_KEY`가 필요합니다. 값은 Vercel **Settings → Environment Variables**에 직접 넣습니다.
+다시 실행하는 방법: `npm ci` → `npm run build -- --local`(로컬 빌드 확인) → `npm run test:r5` → `npm run decider:test`(6·7단계) → `npm run fixture:7`(7단계) → `npm run detect:test`(9단계) → `npm run policy:diff`(10단계) → `npm run test:device`(11단계). 로그인과 메모 화면은 Vercel 배포에서만 확인할 수 있으며, Vercel 환경변수 `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, 서버 전용 `SUPABASE_SECRET_KEY`가 필요합니다. 값은 Vercel **Settings → Environment Variables**에 직접 넣습니다.
 
 ## 6단계: 등록한 기기만 자료실에 들어옵니다 (저장점)
 
-6단계 저장점 커밋은 `9bce033`입니다. 현재 상태는 아래 "8단계"~"10단계" 절을 보세요. 저장소·배포 주소·`identityProvider`·`allowedRoutes`(당시 여덟 경로, 8단계에서 세 경로로 바뀜)·`originalApiUrl`·`judgeIssuer`는 5단계와 같습니다. 6단계 당시 빌드가 만든 `aleph.json`에는 `step: 6`과 함께 `allowedRoutes`·`originalApiUrl`이 그대로 들어갑니다.
+6단계 저장점 커밋은 `9bce033`입니다. 현재 상태는 아래 "8단계"~"11단계" 절을 보세요. 저장소·배포 주소·`identityProvider`·`allowedRoutes`(당시 여덟 경로, 8단계에서 세 경로로 바뀜)·`originalApiUrl`·`judgeIssuer`는 5단계와 같습니다. 6단계 당시 빌드가 만든 `aleph.json`에는 `step: 6`과 함께 `allowedRoutes`·`originalApiUrl`이 그대로 들어갑니다.
 
 - **판정기 규칙** (`src/decider.mjs`, `device_registered`): `docs/DECIDER_REQUEST.md` 계약의 `deviceRegistered`가 정확히 `true`이고 `method`가 `GET`인 요청만 `allow`·`approved`로 허용합니다. `false`·값 없음·`"true"`·`1`은 `deny`·`device_not_registered`로 거부합니다. 등록 기기의 GET이 아닌 요청은 기본 거부(`starter.deny`, `starter_not_ready`)입니다. 요청이 객체가 아니어도 예외 없이 형식이 맞는 거부를 돌려줍니다.
 - 이번 과정에는 학생이 따로 설치할 접속 프로그램이 없습니다. 미등록 기기로 들어오는 공격은 심판이 맡습니다.
@@ -119,7 +119,7 @@
 
 ## 7단계: 평소와 다른 접속은 다시 확인합니다 (저장점)
 
-7단계 저장점 커밋은 `925731e`입니다. 현재 상태는 아래 "8단계"~"10단계" 절을 보세요. 저장소·배포 주소·`identityProvider`·`allowedRoutes`(당시 여덟 경로, 8단계에서 세 경로로 바뀜)·`originalApiUrl`·`judgeIssuer`는 5·6단계와 같고, 빌드가 만드는 `aleph.json`에는 `step: 7`과 함께 `allowedRoutes`·`originalApiUrl`이 그대로 들어갑니다. API·화면·DB는 6단계와 같고, 이번 단계는 판정기(`src/decider.mjs`)와 자기 점검만 바꿨습니다.
+7단계 저장점 커밋은 `925731e`입니다. 현재 상태는 아래 "8단계"~"11단계" 절을 보세요. 저장소·배포 주소·`identityProvider`·`allowedRoutes`(당시 여덟 경로, 8단계에서 세 경로로 바뀜)·`originalApiUrl`·`judgeIssuer`는 5·6단계와 같고, 빌드가 만드는 `aleph.json`에는 `step: 7`과 함께 `allowedRoutes`·`originalApiUrl`이 그대로 들어갑니다. API·화면·DB는 6단계와 같고, 이번 단계는 판정기(`src/decider.mjs`)와 자기 점검만 바꿨습니다.
 
 - **재로그인 계약**: `docs/DECIDER_REQUEST.md`의 `stepUp` `{verified, authAgeSeconds}`가 엔진이 확인해 넘기는 재인증 상태입니다. 판정기가 `step_up`을 돌려주면 엔진이 추가 본인 확인을 요청하고, 새 로그인 뒤 같은 요청을 `verified: true`로 다시 판정받습니다. 같은 사용자의 로그인인지 묶는 일은 엔진이 하며(계약에 세션 ID 없음), 토큰 원문은 판정 요청에 없고 판정기도 기록하지 않습니다.
 - **입력 검사** (`src/decider.mjs`): `signals.source`가 정확히 `judge_fixture`일 때만 `region`·`network`·`hour`를 씁니다. `none`·빈 값·다른 출처, `unknown`, 0~23 정수가 아닌 시각은 신호 없음이며 정상값으로 채우지 않습니다. `recentEvents`는 `{kind, ageSeconds, count}` 모양인 항목만 읽고 나머지는 버립니다.
@@ -135,7 +135,7 @@
 
 ## 8단계: 자료마다 갈 수 있는 구역을 나눕니다 (저장점)
 
-8단계 저장점 커밋은 `8832375`입니다. 현재 상태는 아래 "9단계"·"10단계" 절도 보세요. 저장소·배포 주소·`identityProvider`·`originalApiUrl`·`judgeIssuer`는 7단계와 같습니다. `allowedRoutes`는 판정기가 허용하는 세 경로 `GET /api/notes/:id`, `GET /api/notices`, `GET /api/notices/:id`뿐이며, 8단계 당시 빌드가 만든 `aleph.json`에는 `step: 8`·이 세 경로·`originalApiUrl`이 들어갔습니다. 메모 목록·쓰기, 로그인, 관리 경로의 서버 함수는 그대로 있지만 `allowedRoutes`에는 없습니다.
+8단계 저장점 커밋은 `8832375`입니다. 현재 상태는 아래 "9단계"~"11단계" 절도 보세요. 저장소·배포 주소·`identityProvider`·`originalApiUrl`·`judgeIssuer`는 7단계와 같습니다. `allowedRoutes`는 판정기가 허용하는 세 경로 `GET /api/notes/:id`, `GET /api/notices`, `GET /api/notices/:id`뿐이며, 8단계 당시 빌드가 만든 `aleph.json`에는 `step: 8`·이 세 경로·`originalApiUrl`이 들어갔습니다. 메모 목록·쓰기, 로그인, 관리 경로의 서버 함수는 그대로 있지만 `allowedRoutes`에는 없습니다.
 
 - **공지 자원** (`notices`): 반 공지는 메모(`notes`, `byteback_vault_notes`)와 다른 별도 테이블 `byteback_vault_notices`에 있습니다. `GET /api/notices`(목록)와 `GET /api/notices/:id`(한 건, `{id,title,body}`)는 로그인한 사용자만 읽고(`src/verify-login.mjs`), 쓰기는 누구에게나 405입니다(`src/notices-api.mjs`, `api/notices/`). 메모 경로에 공지 id를 넣거나 공지 경로에 메모 id를 넣어도 각각 404입니다.
 - **강사 목록 테이블** `byteback_vault_instructors`(`user_id uuid`): 강사 여부는 서버가 확인한 학생 로그인 사용자 ID가 이 테이블에 있는지로만 판단합니다. **처음에는 비어 있습니다.** 강사 계정 UUID는 학생이 SQL Editor에서 직접 넣고 저장소에는 적지 않습니다.
@@ -154,7 +154,7 @@
 
 ## 9단계: 도플갱어를 찾고 권한을 거둡니다 (저장점)
 
-9단계 저장점 커밋은 `4e3e743`입니다. 현재 상태는 아래 "10단계" 절을 보세요. 저장소·배포 주소·`identityProvider`·`originalApiUrl`·`judgeIssuer`·`allowedRoutes`(세 경로 `GET /api/notes/:id`, `GET /api/notices`, `GET /api/notices/:id`)는 8단계와 같고, 9단계 당시 빌드가 만든 `aleph.json`에는 `step: 9`·세 경로·`originalApiUrl`이 들어갔습니다. 이번 단계는 탐지 함수(`src/detect.mjs`)와 자기 점검만 바꿨습니다.
+9단계 저장점 커밋은 `4e3e743`입니다. 현재 상태는 아래 "10단계"·"11단계" 절을 보세요. 저장소·배포 주소·`identityProvider`·`originalApiUrl`·`judgeIssuer`·`allowedRoutes`(세 경로 `GET /api/notes/:id`, `GET /api/notices`, `GET /api/notices/:id`)는 8단계와 같고, 9단계 당시 빌드가 만든 `aleph.json`에는 `step: 9`·세 경로·`originalApiUrl`이 들어갔습니다. 이번 단계는 탐지 함수(`src/detect.mjs`)와 자기 점검만 바꿨습니다.
 
 - **탐지 입력** (`src/detect.mjs`, `readEvents`): `docs/DETECT_EVENTS.md`의 가상 사건에서 `at`·`method`·`identity.sub`(가명 사용자)만 읽고, 사건에 `deviceId`·`decision`·`network`가 있으면 그것만 더 읽습니다(이 세 이름은 현재 계약에 없어 연습 사건에서는 비어 있음). 본문·토큰·이름은 읽지도 저장하지도 출력하지도 않습니다. `at`이 올바른 ISO 시각이 아니거나 `identity.sub`가 빈 값이면 그 사건만 버리고, `events`가 배열이 아니면 `TypeError`입니다.
 - **탐지 규칙** (`burst_read`): 같은 `identity.sub`의 GET 사건이 어느 10분 구간에서든(밀어 가며, 첫·마지막 사건 차이 10분 미만) **120건을 넘으면**(121건부터) `{ action: 'propose_revocation', reasonCode: 'burst_read', subject }`, 아니면 `{ action: 'observe' }`입니다. 정확히 120건은 제안하지 않고, 사용자끼리 합치지 않으며, 순서가 섞여도 시각 순으로 셉니다. 사건에 네트워크 값이 있으면 `usual`이 아닌 사건만 세고, 없으면 다량 조회만으로 판단합니다. 지역 값은 쓰지 않습니다. 여러 사용자가 넘으면 가장 먼저 넘은 한 명만 돌려줍니다.
@@ -171,7 +171,7 @@
 
 ## 10단계: 백업에서 자료실을 되살립니다 (저장점)
 
-현재 단계는 `aleph.config.json`의 `step: 10`입니다. 저장소·배포 주소·`identityProvider`·`originalApiUrl`·`judgeIssuer`·`allowedRoutes`(세 경로 `GET /api/notes/:id`, `GET /api/notices`, `GET /api/notices/:id`)는 9단계와 같고, 이번 단계에서 `restoreRoute`에 `POST /api/notes/:id/restore`를 적었습니다. 빌드가 만드는 `aleph.json`에 `step: 10`·세 경로·`originalApiUrl`·`restoreRoute`가 들어갑니다.
+10단계 저장점 커밋은 `3bad2e6`이고, 기록 커밋 `ac76ec2`(복구 재확인 표에 배포 확인 결과 반영)와 보완 커밋 `65ba7fe`(복구 응답에 소유자·내용 해시 포함)가 뒤따릅니다. 현재 상태는 아래 "11단계" 절을 보세요. 저장소·배포 주소·`identityProvider`·`originalApiUrl`·`judgeIssuer`·`allowedRoutes`(세 경로 `GET /api/notes/:id`, `GET /api/notices`, `GET /api/notices/:id`)는 9단계와 같고, 이번 단계에서 `restoreRoute`에 `POST /api/notes/:id/restore`를 적었습니다. 10단계 당시 빌드가 만든 `aleph.json`에는 `step: 10`·세 경로·`originalApiUrl`·`restoreRoute`가 들어갔습니다.
 
 ### 정책 사본과 되돌리기
 
@@ -229,17 +229,25 @@
 | 22 | 8 | 금지 | 로그인 없이 `GET /api/notices` | 401 `LOGIN_REQUIRED` | 401 `LOGIN_REQUIRED` |
 | 23 | 9 | 정상·금지 | `npm run detect:test` | 6줄 통과(120건 observe, 121건 `burst_read` 포함) | 6줄 통과 |
 | 24 | 9 | 금지 | 엔진을 거친 다량 조회 회수 집행 | 회수됨 | 미실행 (엔진 연결 필요, 심판 확인) |
-| 25 | 10 | 정상 | B 토큰으로 B 메모를 고친 뒤 `POST /api/notes/<B 메모 id>/restore` | 200, 처음 만든 내용 | 학생이 배포(`3bad2e6`)에서 B 토큰으로 직접 확인: 추가 201 → 변조 200 → 복구 200(원래 제목·내용) → 삭제 200 → 삭제 뒤 조회 404 → 복구 200(원래 제목·내용) → 복구 뒤 조회 200(원래 내용) |
+| 25 | 10 | 정상 | B 토큰으로 B 메모를 고친 뒤 `POST /api/notes/<B 메모 id>/restore` | 200, 처음 만든 내용 | 학생이 배포(`3bad2e6`)에서 B 토큰으로 직접 확인: 추가 201 → 변조 200 → 복구 200(원래 제목·내용) → 삭제 200 → 삭제 뒤 조회 404 → 복구 200(원래 제목·내용) → 복구 뒤 조회 200(원래 내용). 보완(`65ba7fe`) 뒤 학생이 다시 확인: 변조 후 복구 응답에 `ownerId`·`contentSha256`이 나오고 해시가 원래 본문의 sha256과 같음, 10단계 심판 판정 100점 |
 | 26 | 10 | 금지 | A 토큰으로 `POST /api/notes/<B 메모 id>/restore` | 404 `BACKUP_NOT_FOUND` | 미실행 |
 | 27 | 10 | 금지 | 로그인 없이 `POST /api/notes/b4b4b4b4-0000-4000-8000-00000000b004/restore` | 401 JSON | 401 `LOGIN_REQUIRED` (2026-10-14 02:35 UTC, 배포 `3bad2e6`에서 다시 실행. 02:24에는 배포 `4e3e743`에 복구 경로가 없어 404였음) |
 
-## 11단계: 나만의 접속 앱을 완성합니다 (진행 중)
+## 11단계: 나만의 접속 앱을 완성합니다 (저장점)
 
-- **설치형 웹앱 설정**: `public/manifest.webmanifest`(이름·아이콘·standalone), `public/icons/`, 화면의 「기기 승인 상태」 표시(아직 항상 「확인 전」)와 오프라인 안내. 설치나 독립 창 여부로 기기 확인이 끝났다고 보지 않습니다. 서비스 워커·캐시는 없습니다.
-- **기기 표 SQL** `supabase/byteback_vault_devices_step11.sql`: `byteback_vault_devices`(사용자별 기기·공개 키·상태 pending/approved/revoked)와 `byteback_vault_device_nonces`(1회용 번호). 학생이 SQL Editor에서 실행·확인했습니다.
-- **요청 기록**: 관찰을 위해 모든 서버 함수가 Vercel 로그에 `[req11]` 한 줄(메서드·쿼리 뺀 경로·헤더 이름·user-agent 앞 120자·signature-input 앞 200자)을 남깁니다(`src/request-log.mjs`). 본문·토큰·쿠키·쿼리 값은 남기지 않습니다.
+현재 단계는 `aleph.config.json`의 `step: 11`입니다. 저장소·배포 주소·`identityProvider`·`originalApiUrl`·`judgeIssuer`·`allowedRoutes`(세 경로)·`restoreRoute`는 10단계와 같습니다. 11단계 커밋: `6a29589`(요청 헤더 이름 기록), `c1260ef`(점검 단계에 11 추가), `31749a4`(제작 1: 설치형 웹앱 설정과 승인 상태 표시), `5965952`(기기 표 SQL), `4080a23`(기기 승인 경로와 서명 확인), `8edf4db`(보호 경로에 서명 검사), `7118c04`(제작 2: 기기 승인 화면과 서명 요청), `61b8fe1`(기기 경로를 함수 하나로 합침), `8fb466c`(Vercel이 덧붙인 경로 쿼리를 서명 경로에서 제외).
 
-### 기기 서명 규칙 (`src/device-auth.mjs`)
+### 만든 것
+
+- **설치형 웹앱 설정**: `public/manifest.webmanifest`(이름·아이콘 192/512·standalone, `vercel.json`이 `application/manifest+json`으로 응답), `public/icons/`(Node 내장 기능으로 만든 PNG), 오프라인 안내(브라우저가 오프라인이면 「오프라인입니다. 자료는 서버 연결과 기기 승인 뒤에만 볼 수 있습니다.」). 서비스 워커·캐시는 없습니다.
+- **기기 승인 상태 표시**: 서버 응답으로만 「확인 전 → 승인 대기 → 서버가 승인 확인」으로 바뀝니다. 설치나 독립 창 여부로는 바꾸지 않습니다.
+- **기기 표 SQL** `supabase/byteback_vault_devices_step11.sql`: `byteback_vault_devices`(사용자별 기기·공개 키만·상태 pending/approved/revoked·요청/승인 시각, `(owner_id, device_id)` unique, 개인 키 칸이 있는 JWK는 저장 거부)와 `byteback_vault_device_nonces`(1회용 번호). 두 표 모두 RLS, `PUBLIC`·`anon`·`authenticated` 권한 회수, `service_role`은 기기 표 SELECT·INSERT·UPDATE, 번호 표 SELECT·INSERT·DELETE만. 학생이 SQL Editor에서 실행·확인했습니다.
+- **기기 승인 경로** `api/devices/[action].js`(로직 `src/devices-api.mjs`): 아래 표.
+- **보호 경로 서명 검사**: `GET·POST /api/notes`, `GET·PUT·DELETE /api/notes/:id`, `POST /api/notes/:id/restore`, `GET /api/notices`, `GET /api/notices/:id`, `PUT /api/admin/notices/:id`는 로그인 확인(없으면 기존 401 `LOGIN_REQUIRED`) 뒤 `requireApprovedDevice`로 기기 서명을 확인합니다. 서명 오류는 아래 401 코드, 다른 사용자의 기기는 403 `DEVICE_NOT_REGISTERED`, 승인되지 않은 기기는 403 `DEVICE_NOT_APPROVED`이며 학생·심판 토큰 모두 같습니다. 통과해야만 기존 처리(소유자 검사·404·409·복구 응답·강사 검사·감사·사본)가 그대로 실행됩니다. 로그인·로그아웃·토큰 갱신과 `/api/devices/*`에는 붙이지 않았습니다.
+- **기기 승인 화면** (`public/auth.js`, `public/device-sign.js`, `public/index.html`): 로그인(또는 새로 고침 뒤 세션 복구) → 꺼낼 수 없는 ECDSA P-256 키를 자바스크립트 변수에만 생성 → `POST /api/devices/request` → `GET /api/devices/status`. `approved: true`가 아니면 기기 승인 화면(기기 ID·서버 상태·비밀번호 입력란·승인 요청 버튼)만 보이고 자료실 영역은 비어 있고 숨겨집니다. 승인 요청 뒤에도 status를 다시 물어 서버가 `approved: true`라고 답할 때만 자료실을 열고 그때 처음 메모를 불러옵니다. 보호 요청이 기기 이유로 거부되거나 로그아웃하면 메모를 지우고 숨기며, 로그아웃하면 키도 버립니다. 키·토큰·자료는 localStorage·sessionStorage·IndexedDB·쿠키·서비스 워커·캐시에 넣지 않습니다.
+- **요청 기록**: 관찰을 위해 모든 서버 함수가 Vercel 로그에 `[req11]` 한 줄(메서드·쿼리 뺀 경로·헤더 이름·user-agent 앞 120자·signature-input 앞 200자)을 남기고(`src/request-log.mjs`), 기기 서명이 틀린 요청만 `[sig11]` 한 줄(메서드·요청 주소 원문·서명에 쓴 경로)을 남깁니다. 본문·토큰·쿠키·서명 값·쿼리 값(`[req11]`)은 남기지 않습니다.
+
+### 기기 서명 규칙 (`src/device-auth.mjs`, 브라우저는 `public/device-sign.js`)
 
 브라우저는 꺼낼 수 없는(non-extractable) ECDSA P-256 개인 키를 메모리에만 두고, 요청마다 아래 헤더를 보냅니다.
 
@@ -250,19 +258,51 @@
 | `x-aleph-nonce` | 요청마다 새 1회용 번호(영문·숫자·`-`·`_` 1~128자). 같은 기기에서 다시 쓰면 거부 |
 | `x-aleph-signature` | 서명 문자열의 WebCrypto ECDSA SHA-256 서명(IEEE P1363, 64바이트), base64url |
 
-서명 문자열은 `aleph-device-v1`, 메서드(대문자), 경로(쿼리 포함, 요청 주소 그대로), timestamp, nonce, deviceId, 본문 해시의 7줄을 `\n`으로 이은 것입니다(마지막 줄바꿈 없음). 본문 해시는 본문을 키 이름 순서로 정렬한 JSON(canonical JSON, 배열 순서는 그대로)의 sha256 소문자 16진수이고, 본문이 없으면 빈 문자열의 sha256입니다. `canonicalJson`·`bodySha256`·`signingString`·`deviceIdFromJwk`는 표준 WebCrypto만 써서 브라우저에서도 같은 규칙으로 쓸 수 있습니다. 공개 키는 `kty`·`crv`·`x`·`y` 네 칸만 보냅니다(`exportKey`가 붙이는 `ext`·`key_ops`도 빼야 함).
+서명 문자열은 `aleph-device-v1`, 메서드(대문자), 경로(쿼리 포함, 브라우저가 fetch에 넣는 문자열 그대로), timestamp, nonce, deviceId, 본문 해시의 7줄을 `\n`으로 이은 것입니다(마지막 줄바꿈 없음). 본문 해시는 본문을 키 이름 순서로 정렬한 JSON(canonical JSON, 배열 순서는 그대로)의 sha256 소문자 16진수이고, 본문이 없으면 빈 문자열의 sha256입니다. 브라우저는 canonical JSON 문자열을 `Content-Type: application/json`으로 그대로 보냅니다. 공개 키는 `kty`·`crv`·`x`·`y` 네 칸만 보냅니다(`exportKey`가 붙이는 `ext`·`key_ops`는 뺌).
 
-서버 확인 순서: 헤더 없음 401 `DEVICE_SIGNATURE_REQUIRED` → 로그인 사용자의 그 기기 없음 403 `DEVICE_NOT_REGISTERED` → 시각 401 `DEVICE_SIGNATURE_EXPIRED` → 서명 401 `DEVICE_SIGNATURE_INVALID` → 1회용 번호 재사용 401 `DEVICE_NONCE_REUSED`. 승인 상태는 결과로만 돌려주고 허용 판단은 호출하는 쪽이 합니다.
+서버는 서명 경로를 `request.url`에서 만들되, Vercel이 대괄호 경로(`[action]`·`[id]`)를 부를 때 덧붙이는 쿼리만 뺍니다: 이름이 그 칸(`action`·`id`)이고 디코딩한 값이 경로의 그 칸과 정확히 같은 항목(`signedPath`). 그 밖의 쿼리는 그대로 남으므로 쿼리를 덧붙이거나 경로를 바꾼 요청은 401입니다.
 
-### 기기 승인 경로 (`api/devices/`, `src/devices-api.mjs`)
+서버 확인 순서: 헤더 없음 401 `DEVICE_SIGNATURE_REQUIRED` → 로그인 사용자의 그 기기 없음 403 `DEVICE_NOT_REGISTERED` → 시각 401 `DEVICE_SIGNATURE_EXPIRED` → 서명 401 `DEVICE_SIGNATURE_INVALID` → 1회용 번호 재사용 401 `DEVICE_NONCE_REUSED`.
+
+### 기기 승인 경로 (`api/devices/[action].js`)
 
 | 경로 | 조건 | 응답 |
 |---|---|---|
-| `POST /api/devices/request` 본문 `{deviceId, publicKeyJwk}` | 로그인. 공개 키는 네 칸만(개인 키 칸 등 400 `INVALID_PUBLIC_KEY`), deviceId는 서버가 지문으로 다시 계산해 같아야 함(400 `DEVICE_ID_MISMATCH`), 그 키로 한 서명 필요 | 새 기기 201 `{deviceId, status: "pending"}`, 이미 있으면 상태를 바꾸지 않고 200 지금 상태 |
+| `POST /api/devices/request` 본문 `{deviceId, publicKeyJwk}` | 로그인. 공개 키는 네 칸만(그 밖이면 400 `INVALID_PUBLIC_KEY`), deviceId는 서버가 지문으로 다시 계산해 같아야 함(400 `DEVICE_ID_MISMATCH`), 그 키로 한 서명 필요 | 새 기기 201 `{deviceId, status: "pending"}`, 이미 있으면 상태를 바꾸지 않고 200 지금 상태 |
 | `GET /api/devices/status` | 로그인 + 서명 | `{deviceId, status, approved}`(approved는 status가 approved일 때만 true) |
 | `POST /api/devices/approve` 본문 `{password}` | 로그인 + 서명. 심판 토큰 403 `APPROVAL_REQUIRES_PASSWORD`. 서버가 Supabase에서 확인한 본인 이메일로 비밀번호 재확인, 틀리면 401 `PASSWORD_INVALID`. 회수된 기기 403 `DEVICE_REVOKED` | 그 사용자의 그 기기만 approved·`approved_at` 기록, `{deviceId, status, approved: true}` |
 
-세 경로 모두 다른 사용자의 기기는 보이지도 바뀌지도 않고(403 `DEVICE_NOT_REGISTERED`), 정해진 메서드 외에는 405입니다. 비밀번호는 저장·기록·응답하지 않고, 확인용 세션은 그 세션만 바로 끝냅니다. 승인 경로는 Vercel 환경변수 `SUPABASE_PUBLISHABLE_KEY`도 씁니다. **보호 경로의 기기 서명 검사**: `GET·POST /api/notes`, `GET·PUT·DELETE /api/notes/:id`, `POST /api/notes/:id/restore`, `GET /api/notices`, `GET /api/notices/:id`, `PUT /api/admin/notices/:id`는 로그인 확인(없으면 기존 401 `LOGIN_REQUIRED`) 뒤 `requireApprovedDevice`로 기기 서명을 확인하고(서명 오류는 위 401 코드, 다른 사용자의 기기는 403 `DEVICE_NOT_REGISTERED`), 승인되지 않은 기기는 403 `DEVICE_NOT_APPROVED`입니다. 학생·심판 토큰 모두 같으며, 이 검사를 통과해야 기존 처리(소유자 검사·404·409·복구 응답·강사 검사·감사·사본)가 그대로 실행됩니다. 로그인·로그아웃·토큰 갱신과 `/api/devices/*`에는 붙이지 않았습니다. 화면(`public/`)은 아직 서명하지 않으므로, 이 변경이 배포되면 화면의 메모 목록·추가·수정·삭제는 서명을 붙이는 다음 작업 전까지 401로 막힙니다.
+`action`이 request·status·approve가 아니면 404 `NOT_FOUND`, 정해진 메서드 외에는 405입니다. 다른 사용자의 기기는 보이지도 바뀌지도 않습니다(403 `DEVICE_NOT_REGISTERED`). 비밀번호는 저장·기록·응답하지 않고, 확인용 세션은 그 세션만 바로 끝냅니다. 승인 경로는 Vercel 환경변수 `SUPABASE_PUBLISHABLE_KEY`도 씁니다.
+
+### 배포 확인 결과 (학생이 직접 확인, 커밋 `8fb466c`, 계정 B, 시크릿 창)
+
+| 확인 | 결과 |
+|---|---|
+| 로그인 직후 | `POST /api/devices/request` 201 → `GET /api/devices/status` 200, 기기 승인 화면, 상태 「승인 대기」, `/api/notes` 요청 없음 |
+| 틀린 비밀번호로 승인 | `/api/devices/approve` 401, 「승인 실패: 비밀번호가 맞지 않습니다」, 자료실 닫힘 |
+| 올바른 비밀번호로 승인 | approve 200 → status 200 → notes 200, 상태 「서버가 승인 확인」, 기존 메모 목록 열림 |
+| 승인 뒤 메모 | 추가 201, 수정 200, 삭제 200 (서명된 요청, 401 없음) |
+| 새로 고침 | 새 기기 ID로 다시 승인 화면, `/api/notes` 요청 없음 |
+| 개발자 도구 Application | Local storage 비어 있음, Service worker 없음 |
+| Supabase `byteback_vault_devices` | 승인한 기기 approved와 `approved_at` 기록, 새로 고침으로 생긴 기기 pending |
+
+11단계 심판 재판정 결과는 아직 이 README에 기록하지 않았습니다(미확인). 엔진을 거친 판정은 이 PC에서 **미실행**입니다.
+
+### 막혔던 점
+
+1. **Vercel Hobby 서버 함수 12개 제한**: `4080a23`에서 `api/devices/`에 함수 3개를 더해 14개가 되자 `4080a23`~`7118c04` 배포가 「No more than 12 Serverless Functions」로 실패했고, `/aleph.json`이 `5965952`에 멈췄습니다. 기기 경로 세 개를 `api/devices/[action].js` 하나로 합쳐 12개로 맞췄습니다(`61b8fe1`). `api/`에 파일을 더 추가하면 다시 이 제한에 걸립니다.
+2. **Vercel이 대괄호 경로 값을 쿼리로 덧붙임**: 합친 뒤 `POST /api/devices/request`가 401 `DEVICE_SIGNATURE_INVALID`였습니다. `request.url`에 `?action=request`처럼 경로 값이 붙어 브라우저가 서명한 경로와 달라졌기 때문으로 보고, 서명 경로에서 그 값만 빼도록 고쳤습니다(`8fb466c`). 고친 뒤 배포에서 등록·상태·승인과 메모 경로가 서명 오류 없이 동작했습니다. 같은 일이 `[id]` 경로에도 해당합니다.
+
+### 시험
+
+- `npm run test:device`: `test/device-sign.test.mjs`(브라우저·서버 서명 규칙 일치, 브라우저 서명을 서버가 통과, 서명 경로에서 덧붙은 쿼리만 빼기)와 `test/device-routes.test.mjs`(기기 승인 경로, 보호 경로 9개의 로그인 없음 401·서명 없음 401·pending 403·승인 서명 시 기존 결과, 서명 뒤 경로·본문 변경 401, 다른 사용자 기기 403, 소유자 검사 404, 심판 토큰, Vercel 쿼리), `test/device-screen.test.mjs`(가짜 DOM·가짜 fetch로 `public/auth.js`를 실행: 승인 전 메모 요청 0회, 서버가 approved라고 답한 뒤에만 자료실이 열림, 틀린 비밀번호·pending이면 닫힘, 기기 거부 시 메모를 지우고 승인 화면, 로그아웃하면 키를 버림, 저장소·쿠키·캐시 미사용). 13개 모두 통과했습니다. Supabase·로그인은 가짜로 바꾸고 키·서명은 실제 WebCrypto로 만드는 로컬 모의 시험이며 실제 브라우저·배포·심판 판정이 아닙니다.
+- **자기 점검** (`src/attack-check.mjs`, `step: 11`): 10단계 점검에 더해 로그인 없이 `GET /api/devices/status`를 실제로 보내 결과를 기록합니다. 승인되지 않은 기기의 보호 요청, 승인된 기기의 서명 요청은 실제 계정 토큰과 브라우저 기기 키가 필요해 「미실행」으로 남깁니다. 학생의 자기 점검이며 심판 판정이 아닙니다.
+
+### 알려진 한계
+
+- 기기 키를 메모리에만 두므로 새로 고침·다시 로그인할 때마다 새 기기로 등록되고 비밀번호로 다시 승인해야 하며, DB에 pending 기기 행이 쌓입니다.
+- 승인 경로에는 비밀번호 시도 횟수 제한이 없습니다(서명과 1회용 번호가 필요하지만, 등록한 기기로는 계속 시도할 수 있음).
+- `[req11]` 요청 기록은 관찰용이며 아직 켜져 있습니다.
 
 ## 시작 틀의 자동 처리
 
@@ -270,7 +310,7 @@
 
 `aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 1단계에서는 자리표시자였고, 2단계 저장점에서 실제 저장소·배포 주소로 바꿨습니다. 2단계 이후 코딩 도구가 필요한 설정과 보호 기능을 단계별로 작성합니다. `npm run bundle`과 `bundle-notes.json`은 1단계의 세 걸음에는 포함되지 않습니다.
 
-로컬에서 빌드만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. 저장소의 `src/attack-check.mjs`는 실제 배포가 된 뒤 `aleph.config.json`의 `step`에 맞는 점검 요청을 보냅니다. 1단계는 `/data.json`의 공개 메모 확인 표시, 2단계는 `/data.json`과 비로그인 `/api/notes`, 3단계는 비로그인·가짜 토큰 요청의 거부 여부, 4단계는 비로그인·가짜 토큰으로 남의 메모를 요청했을 때의 거부 여부를 기록하고 A/B 교차 점검은 미실행으로 남깁니다. 5단계는 키 없이 원본 자료 주소를 직접 조회했을 때와 비로그인 `/api/notes`의 거부 여부를 기록하고, 로그인이 필요한 점검은 미실행으로 남깁니다. 6단계는 5단계 점검을 다시 보내고, 미등록 기기 접속 점검은 심판 몫이라 미실행으로 남깁니다. 7단계는 6단계 점검을 다시 보내고, 재인증 전 차단 점검은 엔진 연결이 필요해 미실행으로 남깁니다. 8단계는 7단계 점검에 더해 로그인 없이 공지 목록과 강사 관리 경로를 요청한 결과를 기록하고, 로그인이 필요한 교차 점검은 미실행으로 남깁니다. 9단계는 8단계 점검을 다시 보내고, 회수 집행 점검은 엔진 연결이 필요해 미실행으로 남깁니다. 10단계는 9단계 점검에 더해 로그인 없이 복구 경로를 요청한 결과를 기록하고, 로그인이 필요한 복구 시험은 미실행으로 남깁니다.
+로컬에서 빌드만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. 저장소의 `src/attack-check.mjs`는 실제 배포가 된 뒤 `aleph.config.json`의 `step`에 맞는 점검 요청을 보냅니다. 1단계는 `/data.json`의 공개 메모 확인 표시, 2단계는 `/data.json`과 비로그인 `/api/notes`, 3단계는 비로그인·가짜 토큰 요청의 거부 여부, 4단계는 비로그인·가짜 토큰으로 남의 메모를 요청했을 때의 거부 여부를 기록하고 A/B 교차 점검은 미실행으로 남깁니다. 5단계는 키 없이 원본 자료 주소를 직접 조회했을 때와 비로그인 `/api/notes`의 거부 여부를 기록하고, 로그인이 필요한 점검은 미실행으로 남깁니다. 6단계는 5단계 점검을 다시 보내고, 미등록 기기 접속 점검은 심판 몫이라 미실행으로 남깁니다. 7단계는 6단계 점검을 다시 보내고, 재인증 전 차단 점검은 엔진 연결이 필요해 미실행으로 남깁니다. 8단계는 7단계 점검에 더해 로그인 없이 공지 목록과 강사 관리 경로를 요청한 결과를 기록하고, 로그인이 필요한 교차 점검은 미실행으로 남깁니다. 9단계는 8단계 점검을 다시 보내고, 회수 집행 점검은 엔진 연결이 필요해 미실행으로 남깁니다. 10단계는 9단계 점검에 더해 로그인 없이 복구 경로를 요청한 결과를 기록하고, 로그인이 필요한 복구 시험은 미실행으로 남깁니다. 11단계는 10단계 점검에 더해 로그인 없이 기기 상태 경로를 요청한 결과를 기록하고, 로그인과 기기 서명이 필요한 점검은 미실행으로 남깁니다.
 
 ## 다음 단계의 코딩 도구에 전달할 규칙
 

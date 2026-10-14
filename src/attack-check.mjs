@@ -23,8 +23,7 @@ export async function runAttackChecks(config) {
   if (config.step === 8) return runStepEightChecks(app, config);
   if (config.step === 9) return runStepNineChecks(app, config);
   if (config.step === 10) return runStepTenChecks(app, config);
-  // 11단계 탐색 중: 새 점검 없이 10단계 점검을 그대로 다시 보냅니다.
-  if (config.step === 11) return runStepTenChecks(app, config);
+  if (config.step === 11) return runStepElevenChecks(app, config);
   const response = await fetch(new URL('/data.json', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
   });
@@ -250,5 +249,19 @@ async function runStepTenChecks(app, config) {
       observed: '미실행, 직접 확인 (실제 계정의 비밀번호·토큰이 필요해 자동 점검하지 않음)' },
     { attackId: 'cross_owner_note_restore', expected: 'A 토큰으로 B 메모 복구는 404 BACKUP_NOT_FOUND, B 메모는 그대로',
       observed: '미실행, 직접 확인 (실제 계정의 비밀번호·토큰이 필요해 자동 점검하지 않음)' },
+  ];
+}
+
+// 11단계: 10단계 점검에 더해, 로그인 없이 GET /api/devices/status를 실제로 보내 401로 거부되는지 기록합니다.
+// 기기 등록·승인과 승인된 기기의 서명 요청은 실제 계정 토큰과 브라우저 기기 키가 필요해 미실행으로 남깁니다.
+async function runStepElevenChecks(app, config) {
+  return [
+    ...await runStepTenChecks(app, config),
+    { attackId: 'anonymous_device_status', expected: '로그인 없이 GET /api/devices/status 요청은 401 JSON으로 거부',
+      observed: `로그인 없이 기기 상태 조회: ${await attempt(new URL('/api/devices/status', app), { method: 'GET' })}` },
+    { attackId: 'unapproved_device_data', expected: '로그인했지만 승인되지 않은 기기의 보호 자료 요청은 403 DEVICE_NOT_APPROVED, 서명 없으면 401 DEVICE_SIGNATURE_REQUIRED',
+      observed: '미실행, 직접 확인 (실제 계정 토큰과 브라우저 기기 키가 필요해 자동 점검하지 않음)' },
+    { attackId: 'approved_device_signed_access', expected: '비밀번호 재확인으로 승인된 기기의 서명 요청만 기존 자료를 받음',
+      observed: '미실행, 화면에서 직접 확인 (실제 계정의 비밀번호·토큰이 필요해 자동 점검하지 않음)' },
   ];
 }
