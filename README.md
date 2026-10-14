@@ -12,7 +12,7 @@
 
 ## 2단계: 자료를 코드 밖으로 옮김 (저장점)
 
-2단계 저장점 커밋은 `5c32482`입니다. 현재 상태는 아래 "5단계"·"6단계" 절을 보세요.
+2단계 저장점 커밋은 `5c32482`입니다. 현재 상태는 아래 "5단계"·"6단계"·"7단계" 절을 보세요.
 
 - 가상 메모는 Supabase 테이블 `byteback_vault_notes`에 있습니다. 테이블 생성·RLS·권한 SQL은 `supabase/byteback_vault_notes.sql`입니다. RLS가 켜져 있고 `anon`·`authenticated`에는 권한이 없습니다. 이 SQL은 이미 Supabase에서 실행했습니다.
 - 메모 네 건을 넣은 insert는 Git에서 제외된 로컬 전용 파일 `supabase/byteback_vault_notes.seed.local.sql`에만 있습니다(`.gitignore`의 `supabase/*.local.sql`). 저장소에는 메모 본문이 없으며, 이 insert는 이미 실행했으므로 다시 실행하면 메모가 중복됩니다.
@@ -51,7 +51,7 @@
 
 ## 3단계: 진짜 로그인을 붙임 (저장점)
 
-3단계 저장점 커밋은 `b596498`입니다. 현재 상태는 아래 "5단계"·"6단계" 절을 보세요.
+3단계 저장점 커밋은 `b596498`입니다. 현재 상태는 아래 "5단계"·"6단계"·"7단계" 절을 보세요.
 
 - **로그인 화면**: `public/auth.js`가 공식 `@supabase/supabase-js`(2.117.2)로 Supabase Auth 이메일·비밀번호 로그인·로그아웃을 처리합니다. 화면 코드에는 공개용 Project URL과 publishable key만 있습니다. 로그인에 실패하면 이유를 화면에 보여 주고, 로그인하면 입력 칸이 숨겨집니다.
 - **토큰 검사**: 자료 API는 `Authorization: Bearer <토큰>`을 시작 틀의 `src/verify-login.mjs`로 검사합니다. 브라우저가 보낸 `userId`·`role`·`owner_id`는 믿지 않습니다. 토큰이 없거나 검사에 실패하면 자료 없이 `401` JSON(`LOGIN_REQUIRED`)으로 거부합니다.
@@ -69,7 +69,7 @@
 
 ## 4단계: 로그인해도 내 자료만 보이게 함 (저장점)
 
-4단계 저장점 커밋은 `458c61e`입니다. 현재 상태는 아래 "5단계"·"6단계" 절을 보세요.
+4단계 저장점 커밋은 `458c61e`입니다. 현재 상태는 아래 "5단계"·"6단계"·"7단계" 절을 보세요.
 
 - **API 소유자 검사** (`src/notes-api.mjs`): 모든 읽기·추가·수정·삭제가 `src/verify-login.mjs`로 검증된 사용자 ID만 씁니다. URL·본문의 `owner_id`·`userId`·`role`은 읽지 않습니다.
   - 목록 `GET /api/notes`와 한 건 `GET /api/notes/:id`: `owner_id`가 본인인 행만
@@ -98,11 +98,11 @@
 
 **`npm run test:package`:** 3개 모두 통과하지만, 운영 측 기준표가 새 함수를 인정했다는 뜻은 아닙니다. 이 테스트는 `api/` 맨 위의 `.js` 파일만 기준표와 비교하므로 하위 폴더 `api/notes/`의 함수를 보지 않습니다. 운영 측 파일(`package/baseline-functions.json`, `test/package-starter.test.mjs`)은 바꾸지 않았습니다.
 
-다시 실행하는 방법: `npm ci` → `npm run build -- --local`(로컬 빌드 확인) → `npm run test:r5` → `npm run decider:test`(6단계). 로그인과 메모 화면은 Vercel 배포에서만 확인할 수 있으며, Vercel 환경변수 `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, 서버 전용 `SUPABASE_SECRET_KEY`가 필요합니다. 값은 Vercel **Settings → Environment Variables**에 직접 넣습니다.
+다시 실행하는 방법: `npm ci` → `npm run build -- --local`(로컬 빌드 확인) → `npm run test:r5` → `npm run decider:test`(6·7단계) → `npm run fixture:7`(7단계). 로그인과 메모 화면은 Vercel 배포에서만 확인할 수 있으며, Vercel 환경변수 `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, 서버 전용 `SUPABASE_SECRET_KEY`가 필요합니다. 값은 Vercel **Settings → Environment Variables**에 직접 넣습니다.
 
 ## 6단계: 등록한 기기만 자료실에 들어옵니다 (저장점)
 
-현재 단계는 `aleph.config.json`의 `step: 6`입니다. 저장소·배포 주소·`identityProvider`·`allowedRoutes`(여덟 경로)·`originalApiUrl`·`judgeIssuer`는 5단계와 같습니다. 빌드가 만드는 `aleph.json`에는 `step: 6`과 함께 `allowedRoutes`·`originalApiUrl`이 그대로 들어갑니다.
+6단계 저장점 커밋은 `9bce033`입니다. 현재 상태는 아래 "7단계" 절을 보세요. 저장소·배포 주소·`identityProvider`·`allowedRoutes`(여덟 경로)·`originalApiUrl`·`judgeIssuer`는 5단계와 같습니다. 6단계 당시 빌드가 만든 `aleph.json`에는 `step: 6`과 함께 `allowedRoutes`·`originalApiUrl`이 그대로 들어갑니다.
 
 - **판정기 규칙** (`src/decider.mjs`, `device_registered`): `docs/DECIDER_REQUEST.md` 계약의 `deviceRegistered`가 정확히 `true`이고 `method`가 `GET`인 요청만 `allow`·`approved`로 허용합니다. `false`·값 없음·`"true"`·`1`은 `deny`·`device_not_registered`로 거부합니다. 등록 기기의 GET이 아닌 요청은 기본 거부(`starter.deny`, `starter_not_ready`)입니다. 요청이 객체가 아니어도 예외 없이 형식이 맞는 거부를 돌려줍니다.
 - 이번 과정에는 학생이 따로 설치할 접속 프로그램이 없습니다. 미등록 기기로 들어오는 공격은 심판이 맡습니다.
@@ -117,13 +117,29 @@
 
 이 명령은 로컬 가상 요청 연습이며 심판 판정이나 반 엔진 연결 증거가 아닙니다.
 
+## 7단계: 평소와 다른 접속은 다시 확인합니다 (저장점)
+
+현재 단계는 `aleph.config.json`의 `step: 7`입니다. 저장소·배포 주소·`identityProvider`·`allowedRoutes`(여덟 경로)·`originalApiUrl`·`judgeIssuer`는 5·6단계와 같고, 빌드가 만드는 `aleph.json`에는 `step: 7`과 함께 `allowedRoutes`·`originalApiUrl`이 그대로 들어갑니다. API·화면·DB는 6단계와 같고, 이번 단계는 판정기(`src/decider.mjs`)와 자기 점검만 바꿨습니다.
+
+- **재로그인 계약**: `docs/DECIDER_REQUEST.md`의 `stepUp` `{verified, authAgeSeconds}`가 엔진이 확인해 넘기는 재인증 상태입니다. 판정기가 `step_up`을 돌려주면 엔진이 추가 본인 확인을 요청하고, 새 로그인 뒤 같은 요청을 `verified: true`로 다시 판정받습니다. 같은 사용자의 로그인인지 묶는 일은 엔진이 하며(계약에 세션 ID 없음), 토큰 원문은 판정 요청에 없고 판정기도 기록하지 않습니다.
+- **입력 검사** (`src/decider.mjs`): `signals.source`가 정확히 `judge_fixture`일 때만 `region`·`network`·`hour`를 씁니다. `none`·빈 값·다른 출처, `unknown`, 0~23 정수가 아닌 시각은 신호 없음이며 정상값으로 채우지 않습니다. `recentEvents`는 `{kind, ageSeconds, count}` 모양인 항목만 읽고 나머지는 버립니다.
+- **판정기 규칙** (`step_up_required`): 등록 기기의 GET 요청에서 믿을 수 있는 신호(`judge_fixture`)나 최근 사건 가운데 **하나라도** 이상하면, 엔진이 확인한 재인증(`verified === true`, `authAgeSeconds` 0~300 정수)이 없는 한 `step_up`·`step_up_required`로 자료를 주지 않습니다. 재인증 뒤에는 `allow`·`approved`입니다. 이상 기준은 지역이 `local`이 아닌 값(`anomaly.region`), 네트워크가 `usual`이 아닌 값(`anomaly.network`), 0~5시(`anomaly.hour`), 최근 900초 안 `risk_signal` 합계 5 이상 또는 종류와 상관없이 600초 안 한 사건의 `count` 10 이상(`anomaly.burst`)입니다. `unknown`과 신호 없음은 이상으로 세지 않습니다. 실제로 걸린 이상의 규칙 이름은 `ruleIds`에 `step_up_required`와 함께 남고, 이유 코드는 `step_up_required` 하나입니다. `stepUp`만으로는 미등록 기기나 GET이 아닌 요청을 통과시키지 않습니다.
+- **자기 점검** (`src/attack-check.mjs`, `step: 7`): 6단계 점검(키 없이 원본 직접 조회, 로그인 없이 `/api/notes`)을 그대로 실제로 보냅니다. 평소와 다른 접속의 재인증 전 차단 점검은 엔진이 판정기의 `step_up`을 받아 처리하므로 「미실행, 엔진 연결 필요」로 남깁니다. 학생의 자기 점검이며 심판 판정이 아닙니다.
+
+### 확인 순서
+
+1. `npm run decider:test`: 네 줄(등록 기기의 정상 요청, 미등록 기기의 가상 요청, 복합 이상 접속, 다시 확인한 복합 이상 접속)이 모두 `통과`여야 합니다.
+2. `npm run fixture:7`: `정상 사건: allow`, `복합 이상 사건: step_up`이 나와야 합니다.
+
+두 명령은 로컬 가상 요청 연습이며 심판 판정이 아닙니다. **엔진을 거친 실제 자료 차단 시험(평소와 다른 접속에서 새 로그인 전 자료가 막히고, 새 로그인 뒤 다시 판정되는지)은 미실행입니다.** 이 PC에는 제공 엔진이 연결돼 있지 않습니다.
+
 ## 시작 틀의 자동 처리
 
 `vercel.json`은 정적 결과물 `public`을 배포합니다. 빌드 명령 `npm run build`는 Vercel이 제공하는 GitHub 저장소 소유자·이름, 커밋 SHA, 배포 URL을 검증하고 `public/aleph.json`을 생성합니다. 이 값이 없으면 빌드가 실패하므로, 성공한 것처럼 빈 주소를 내보내지 않습니다. `aleph.json`의 내용만으로 저장소 소유권이나 방어 성공을 인정하지 않습니다. 심판이 공개 저장소의 실제 커밋과 배포된 자료를 따로 대조해야 합니다.
 
 `aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 1단계에서는 자리표시자였고, 2단계 저장점에서 실제 저장소·배포 주소로 바꿨습니다. 2단계 이후 코딩 도구가 필요한 설정과 보호 기능을 단계별로 작성합니다. `npm run bundle`과 `bundle-notes.json`은 1단계의 세 걸음에는 포함되지 않습니다.
 
-로컬에서 빌드만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. 저장소의 `src/attack-check.mjs`는 실제 배포가 된 뒤 `aleph.config.json`의 `step`에 맞는 점검 요청을 보냅니다. 1단계는 `/data.json`의 공개 메모 확인 표시, 2단계는 `/data.json`과 비로그인 `/api/notes`, 3단계는 비로그인·가짜 토큰 요청의 거부 여부, 4단계는 비로그인·가짜 토큰으로 남의 메모를 요청했을 때의 거부 여부를 기록하고 A/B 교차 점검은 미실행으로 남깁니다. 5단계는 키 없이 원본 자료 주소를 직접 조회했을 때와 비로그인 `/api/notes`의 거부 여부를 기록하고, 로그인이 필요한 점검은 미실행으로 남깁니다. 6단계는 5단계 점검을 다시 보내고, 미등록 기기 접속 점검은 심판 몫이라 미실행으로 남깁니다.
+로컬에서 빌드만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. 저장소의 `src/attack-check.mjs`는 실제 배포가 된 뒤 `aleph.config.json`의 `step`에 맞는 점검 요청을 보냅니다. 1단계는 `/data.json`의 공개 메모 확인 표시, 2단계는 `/data.json`과 비로그인 `/api/notes`, 3단계는 비로그인·가짜 토큰 요청의 거부 여부, 4단계는 비로그인·가짜 토큰으로 남의 메모를 요청했을 때의 거부 여부를 기록하고 A/B 교차 점검은 미실행으로 남깁니다. 5단계는 키 없이 원본 자료 주소를 직접 조회했을 때와 비로그인 `/api/notes`의 거부 여부를 기록하고, 로그인이 필요한 점검은 미실행으로 남깁니다. 6단계는 5단계 점검을 다시 보내고, 미등록 기기 접속 점검은 심판 몫이라 미실행으로 남깁니다. 7단계는 6단계 점검을 다시 보내고, 재인증 전 차단 점검은 엔진 연결이 필요해 미실행으로 남깁니다.
 
 ## 다음 단계의 코딩 도구에 전달할 규칙
 

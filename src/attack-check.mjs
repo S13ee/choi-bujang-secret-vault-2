@@ -2,7 +2,7 @@
 // Never return tokens, private keys, real names, or note bodies.
 // 실제로 보낸 요청의 결과만 기록합니다. 심판의 판정이 아닙니다.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4, 5, 6].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5, 6, 7].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -19,6 +19,7 @@ export async function runAttackChecks(config) {
   if (config.step === 4) return runStepFourChecks(app, config);
   if (config.step === 5) return runStepFiveChecks(app, config);
   if (config.step === 6) return runStepSixChecks(app, config);
+  if (config.step === 7) return runStepSevenChecks(app, config);
   const response = await fetch(new URL('/data.json', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
   });
@@ -186,5 +187,15 @@ async function runStepSixChecks(app, config) {
     ...await runStepFiveChecks(app, config),
     { attackId: 'unregistered_device_access', expected: '미등록 기기의 자료실 요청은 deny·device_not_registered로 거부',
       observed: '미실행, 심판이 확인 (학생 점검에는 미등록 기기로 접속할 수단이 없음. 로컬 가상 요청 연습은 npm run decider:test)' },
+  ];
+}
+
+// 7단계: 6단계 점검을 그대로 다시 보냅니다. 평소와 다른 접속의 재인증 전 차단은 반 엔진이 판정기의 step_up을 받아
+// 처리하므로, 엔진이 연결되지 않은 학생 점검에서는 보내지 않고 미실행으로 남깁니다. 토큰 원문은 쓰지 않습니다.
+async function runStepSevenChecks(app, config) {
+  return [
+    ...await runStepSixChecks(app, config),
+    { attackId: 'unusual_access_before_step_up', expected: '평소와 다른 접속은 새 로그인 확인 전 자료 없이 step_up·step_up_required, 재인증 뒤 다시 판정',
+      observed: '미실행, 엔진 연결 필요 (로컬 가상 요청 연습은 npm run decider:test, npm run fixture:7)' },
   ];
 }
