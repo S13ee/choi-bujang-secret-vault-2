@@ -1,6 +1,9 @@
 // The student changes this check as each stage adds an attack to the same app.
 // Never return tokens, private keys, real names, or note bodies.
 // 실제로 보낸 요청의 결과만 기록합니다. 심판의 판정이 아닙니다.
+// 12단계: 심판 격리 환경에서는 node:fs·node:path·node:url·node:child_process·node:crypto만 쓸 수 있어 step 12 점검은 node:crypto만 씁니다.
+import { createHash, randomUUID } from 'node:crypto';
+
 export async function runAttackChecks(config) {
   if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
@@ -24,8 +27,8 @@ export async function runAttackChecks(config) {
   if (config.step === 9) return runStepNineChecks(app, config);
   if (config.step === 10) return runStepTenChecks(app, config);
   if (config.step === 11) return runStepElevenChecks(app, config);
-  // 12단계 탐색 중: 새 점검 없이 11단계 점검을 그대로 다시 보냅니다.
-  if (config.step === 12) return runStepElevenChecks(app, config);
+  // 12단계: 제출 묶음은 읽기 요청(GET·HEAD)만 보낼 수 있어 11단계 사슬을 다시 쓰지 않고 전용 점검을 씁니다.
+  if (config.step === 12) return runStepTwelveChecks(app, config);
   const response = await fetch(new URL('/data.json', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
   });
@@ -265,5 +268,77 @@ async function runStepElevenChecks(app, config) {
       observed: '미실행, 직접 확인 (실제 계정 토큰과 브라우저 기기 키가 필요해 자동 점검하지 않음)' },
     { attackId: 'approved_device_signed_access', expected: '비밀번호 재확인으로 승인된 기기의 서명 요청만 기존 자료를 받음',
       observed: '미실행, 화면에서 직접 확인 (실제 계정의 비밀번호·토큰이 필요해 자동 점검하지 않음)' },
+  ];
+}
+
+// 12단계: 심판이 격리 환경에서 npm run bundle을 실행하므로, 공개 HTTPS 주소(publicAppUrl·originalApiUrl)에
+// GET·HEAD 요청만 보냅니다. 쓰기 요청·로그인·기기 서명·엔진이 필요한 점검은 요청을 보내지 않고 observed를 "not_run"으로 두며,
+// 이유는 expected에 적습니다. node:crypto(randomUUID·sha256)만 쓰고 Buffer·전역 crypto는 쓰지 않습니다.
+const NOT_RUN = 'not_run';
+const B64URL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+
+// ASCII JSON만 넣으므로 문자 코드를 바이트로 바로 써서 base64url로 바꿉니다.
+function asciiBase64url(text) {
+  let out = '';
+  for (let index = 0; index < text.length; index += 3) {
+    const [a, b, c] = [text.charCodeAt(index), text.charCodeAt(index + 1), text.charCodeAt(index + 2)];
+    const triple = (a << 16) | ((b || 0) << 8) | (c || 0);
+    out += B64URL[(triple >> 18) & 63] + B64URL[(triple >> 12) & 63];
+    if (index + 1 < text.length) out += B64URL[(triple >> 6) & 63];
+    if (index + 2 < text.length) out += B64URL[triple & 63];
+  }
+  return out;
+}
+
+// 형식만 갖춘 가짜 토큰(서명은 무작위 sha256 두 개). 어떤 계정으로도 통하지 않으며 결과에 토큰을 남기지 않습니다.
+function readOnlyForgedToken(config) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = asciiBase64url(JSON.stringify({ alg: 'ES256', typ: 'JWT', kid: 'attack-check-forged' }));
+  const payload = asciiBase64url(JSON.stringify({ iss: config.identityProvider?.issuer, aud: config.identityProvider?.audience,
+    role: 'authenticated', sub: randomUUID(), iat: now, exp: now + 300 }));
+  const signature = createHash('sha256').update(randomUUID()).digest('base64url')
+    + createHash('sha256').update(randomUUID()).digest('base64url');
+  return `${header}.${payload}.${signature}`;
+}
+
+async function headStatus(url) {
+  try {
+    const response = await fetch(url, { method: 'HEAD', redirect: 'error', signal: AbortSignal.timeout(10000) });
+    return `HTTP ${response.status}`;
+  } catch (error) {
+    return `요청 실패 (${error.name})`;
+  }
+}
+
+async function runStepTwelveChecks(app, config) {
+  const bNote = new URL(`/api/notes/${B_TEST_NOTE_ID}`, app);
+  const get = (url, headers) => attempt(url, { method: 'GET', ...(headers ? { headers } : {}) });
+  return [
+    { attackId: 'original_api_direct_read', expected: '키·토큰 없이 originalApiUrl을 직접 GET하면 메모 없이 거부',
+      observed: `키 없이 원본 자료 직접 조회: ${await directOriginalRead(config)}` },
+    { attackId: 'anonymous_list_notes', expected: '로그인 없이 GET /api/notes 요청은 401 JSON으로 거부',
+      observed: `로그인 없이 목록 조회: ${await get(new URL('/api/notes', app))}` },
+    { attackId: 'anonymous_read_other_note', expected: '로그인 없이 GET /api/notes/:id(B 시험 메모) 요청은 401 JSON으로 거부',
+      observed: `로그인 없이 B 시험 메모 조회: ${await get(bNote)}` },
+    { attackId: 'forged_token_read_other_note', expected: '형식만 갖춘 가짜 토큰으로 GET /api/notes/:id(B 시험 메모) 요청은 401 JSON으로 거부',
+      observed: `가짜 토큰으로 B 시험 메모 조회: ${await get(bNote, { Authorization: `Bearer ${readOnlyForgedToken(config)}` })}` },
+    { attackId: 'query_appended_note_read', expected: '쿼리를 붙인 GET /api/notes/:id?x=1(로그인 없음)도 401 JSON으로 거부',
+      observed: `쿼리를 붙인 B 시험 메모 조회: ${await get(new URL(`/api/notes/${B_TEST_NOTE_ID}?x=1`, app))}` },
+    { attackId: 'anonymous_list_notices', expected: '로그인 없이 GET /api/notices 요청은 401 JSON으로 거부',
+      observed: `로그인 없이 공지 목록 조회: ${await get(new URL('/api/notices', app))}` },
+    { attackId: 'anonymous_device_status', expected: '로그인 없이 GET /api/devices/status 요청은 401 JSON으로 거부',
+      observed: `로그인 없이 기기 상태 조회: ${await get(new URL('/api/devices/status', app))}` },
+    { attackId: 'public_data_json_head', expected: '공개 /data.json은 없어야 함(HEAD 요청, 404 기대)',
+      observed: `HEAD /data.json: ${await headStatus(new URL('/data.json', app))}` },
+    { attackId: 'anonymous_create_note', expected: '로그인 없이 POST /api/notes는 401이어야 함. 쓰기 요청이라 제출 묶음에서는 보내지 않음', observed: NOT_RUN },
+    { attackId: 'anonymous_admin_notice_update', expected: '로그인 없이 PUT /api/admin/notices/:id는 401이어야 함. 쓰기 요청이라 제출 묶음에서는 보내지 않음', observed: NOT_RUN },
+    { attackId: 'anonymous_note_restore', expected: '로그인 없이 POST /api/notes/:id/restore는 401이어야 함. 쓰기 요청이라 제출 묶음에서는 보내지 않음', observed: NOT_RUN },
+    { attackId: 'login_token_original_api_direct_read', expected: '로그인 사용자 토큰으로 originalApiUrl 직접 조회도 거부. 실제 계정 토큰이 필요해 보내지 않음', observed: NOT_RUN },
+    { attackId: 'cross_owner_access', expected: 'A가 B 메모 GET·PUT·DELETE·복구는 404, 메모·공지 id 교차도 404. 실제 계정 토큰과 기기 서명이 필요해 보내지 않음', observed: NOT_RUN },
+    { attackId: 'student_admin_notice_update', expected: '강사 목록에 없는 학생의 관리 경로 수정은 403 NOT_INSTRUCTOR. 로그인과 쓰기 요청이 필요해 보내지 않음', observed: NOT_RUN },
+    { attackId: 'unapproved_device_data', expected: '승인되지 않은 기기의 보호 자료 요청은 403 DEVICE_NOT_APPROVED. 실제 계정 토큰과 브라우저 기기 키가 필요해 보내지 않음', observed: NOT_RUN },
+    { attackId: 'unregistered_device_access', expected: '미등록 기기의 자료실 요청은 deny·device_not_registered. 엔진과 심판이 필요해 보내지 않음', observed: NOT_RUN },
+    { attackId: 'unusual_access_before_step_up', expected: '평소와 다른 접속은 재인증 전 step_up. 엔진이 필요해 보내지 않음', observed: NOT_RUN },
+    { attackId: 'burst_read_revocation', expected: '10분 안에 GET 121건 이상이면 burst_read 회수. 엔진과 심판이 필요하고 다량 요청이라 보내지 않음', observed: NOT_RUN },
   ];
 }
