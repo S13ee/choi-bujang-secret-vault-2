@@ -233,6 +233,37 @@
 | 26 | 10 | 금지 | A 토큰으로 `POST /api/notes/<B 메모 id>/restore` | 404 `BACKUP_NOT_FOUND` | 미실행 |
 | 27 | 10 | 금지 | 로그인 없이 `POST /api/notes/b4b4b4b4-0000-4000-8000-00000000b004/restore` | 401 JSON | 401 `LOGIN_REQUIRED` (2026-10-14 02:35 UTC, 배포 `3bad2e6`에서 다시 실행. 02:24에는 배포 `4e3e743`에 복구 경로가 없어 404였음) |
 
+## 11단계: 나만의 접속 앱을 완성합니다 (진행 중)
+
+- **설치형 웹앱 설정**: `public/manifest.webmanifest`(이름·아이콘·standalone), `public/icons/`, 화면의 「기기 승인 상태」 표시(아직 항상 「확인 전」)와 오프라인 안내. 설치나 독립 창 여부로 기기 확인이 끝났다고 보지 않습니다. 서비스 워커·캐시는 없습니다.
+- **기기 표 SQL** `supabase/byteback_vault_devices_step11.sql`: `byteback_vault_devices`(사용자별 기기·공개 키·상태 pending/approved/revoked)와 `byteback_vault_device_nonces`(1회용 번호). 학생이 SQL Editor에서 실행·확인했습니다.
+- **요청 기록**: 관찰을 위해 모든 서버 함수가 Vercel 로그에 `[req11]` 한 줄(메서드·쿼리 뺀 경로·헤더 이름·user-agent 앞 120자·signature-input 앞 200자)을 남깁니다(`src/request-log.mjs`). 본문·토큰·쿠키·쿼리 값은 남기지 않습니다.
+
+### 기기 서명 규칙 (`src/device-auth.mjs`)
+
+브라우저는 꺼낼 수 없는(non-extractable) ECDSA P-256 개인 키를 메모리에만 두고, 요청마다 아래 헤더를 보냅니다.
+
+| 헤더 | 값 |
+|---|---|
+| `x-aleph-device-id` | 공개 키 RFC 7638 지문의 sha256 16진수 앞 16자리. 지문 입력은 `{"crv":"P-256","kty":"EC","x":"…","y":"…"}`(이름 순서, 공백 없음) |
+| `x-aleph-timestamp` | 서명 시각(밀리초). 서버 시각과 60초 넘게 차이 나면 거부 |
+| `x-aleph-nonce` | 요청마다 새 1회용 번호(영문·숫자·`-`·`_` 1~128자). 같은 기기에서 다시 쓰면 거부 |
+| `x-aleph-signature` | 서명 문자열의 WebCrypto ECDSA SHA-256 서명(IEEE P1363, 64바이트), base64url |
+
+서명 문자열은 `aleph-device-v1`, 메서드(대문자), 경로(쿼리 포함, 요청 주소 그대로), timestamp, nonce, deviceId, 본문 해시의 7줄을 `\n`으로 이은 것입니다(마지막 줄바꿈 없음). 본문 해시는 본문을 키 이름 순서로 정렬한 JSON(canonical JSON, 배열 순서는 그대로)의 sha256 소문자 16진수이고, 본문이 없으면 빈 문자열의 sha256입니다. `canonicalJson`·`bodySha256`·`signingString`·`deviceIdFromJwk`는 표준 WebCrypto만 써서 브라우저에서도 같은 규칙으로 쓸 수 있습니다. 공개 키는 `kty`·`crv`·`x`·`y` 네 칸만 보냅니다(`exportKey`가 붙이는 `ext`·`key_ops`도 빼야 함).
+
+서버 확인 순서: 헤더 없음 401 `DEVICE_SIGNATURE_REQUIRED` → 로그인 사용자의 그 기기 없음 403 `DEVICE_NOT_REGISTERED` → 시각 401 `DEVICE_SIGNATURE_EXPIRED` → 서명 401 `DEVICE_SIGNATURE_INVALID` → 1회용 번호 재사용 401 `DEVICE_NONCE_REUSED`. 승인 상태는 결과로만 돌려주고 허용 판단은 호출하는 쪽이 합니다.
+
+### 기기 승인 경로 (`api/devices/`, `src/devices-api.mjs`)
+
+| 경로 | 조건 | 응답 |
+|---|---|---|
+| `POST /api/devices/request` 본문 `{deviceId, publicKeyJwk}` | 로그인. 공개 키는 네 칸만(개인 키 칸 등 400 `INVALID_PUBLIC_KEY`), deviceId는 서버가 지문으로 다시 계산해 같아야 함(400 `DEVICE_ID_MISMATCH`), 그 키로 한 서명 필요 | 새 기기 201 `{deviceId, status: "pending"}`, 이미 있으면 상태를 바꾸지 않고 200 지금 상태 |
+| `GET /api/devices/status` | 로그인 + 서명 | `{deviceId, status, approved}`(approved는 status가 approved일 때만 true) |
+| `POST /api/devices/approve` 본문 `{password}` | 로그인 + 서명. 심판 토큰 403 `APPROVAL_REQUIRES_PASSWORD`. 서버가 Supabase에서 확인한 본인 이메일로 비밀번호 재확인, 틀리면 401 `PASSWORD_INVALID`. 회수된 기기 403 `DEVICE_REVOKED` | 그 사용자의 그 기기만 approved·`approved_at` 기록, `{deviceId, status, approved: true}` |
+
+세 경로 모두 다른 사용자의 기기는 보이지도 바뀌지도 않고(403 `DEVICE_NOT_REGISTERED`), 정해진 메서드 외에는 405입니다. 비밀번호는 저장·기록·응답하지 않고, 확인용 세션은 그 세션만 바로 끝냅니다. 승인 경로는 Vercel 환경변수 `SUPABASE_PUBLISHABLE_KEY`도 씁니다. 기존 메모·공지·복구·관리 경로에는 아직 서명 검사를 붙이지 않았습니다.
+
 ## 시작 틀의 자동 처리
 
 `vercel.json`은 정적 결과물 `public`을 배포합니다. 빌드 명령 `npm run build`는 Vercel이 제공하는 GitHub 저장소 소유자·이름, 커밋 SHA, 배포 URL을 검증하고 `public/aleph.json`을 생성합니다. 이 값이 없으면 빌드가 실패하므로, 성공한 것처럼 빈 주소를 내보내지 않습니다. `aleph.json`의 내용만으로 저장소 소유권이나 방어 성공을 인정하지 않습니다. 심판이 공개 저장소의 실제 커밋과 배포된 자료를 따로 대조해야 합니다.
