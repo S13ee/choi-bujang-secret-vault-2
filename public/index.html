@@ -64,17 +64,30 @@
       </div>
       <p id="auth-error" class="auth-error" role="alert"></p>
     </section>
-    <section id="note-section" class="auth" aria-label="메모 추가" hidden>
-      <form id="note-form">
-        <label>제목 <input id="note-title" type="text" maxlength="200" required></label>
-        <label>내용 <textarea id="note-body" rows="3" maxlength="5000"></textarea></label>
-        <button type="submit">가상 메모 추가</button>
+    <!-- 11단계: 기기 승인 화면. 로그인 뒤 서버가 이 기기를 승인됐다고 답하기 전까지 보입니다. -->
+    <section id="device-gate" class="auth" aria-label="기기 승인" hidden>
+      <p>이 기기는 아직 서버가 승인을 확인하지 않았습니다. 승인 전에는 자료실을 열지 않습니다.</p>
+      <p>기기 ID: <code id="device-id">-</code><br>서버가 알려 준 상태: <b id="device-server-status">확인 중</b></p>
+      <form id="approve-form">
+        <label>계정 비밀번호 다시 입력 <input id="approve-password" type="password" autocomplete="current-password" required></label>
+        <button type="submit">이 기기 승인 요청</button>
       </form>
-      <p id="note-error" class="auth-error" role="alert"></p>
+      <p id="device-error" class="auth-error" role="alert"></p>
     </section>
-    <ul id="notes" aria-live="polite"><li>가상 자료를 불러오는 중입니다.</li></ul>
+    <!-- 기존 자료실: 서버가 이 기기를 승인됐다고 확인한 뒤에만 보이고, 그때 처음 메모를 불러옵니다. 승인 전에는 비어 있습니다. -->
+    <div id="vault" hidden>
+      <section id="note-section" class="auth" aria-label="메모 추가">
+        <form id="note-form">
+          <label>제목 <input id="note-title" type="text" maxlength="200" required></label>
+          <label>내용 <textarea id="note-body" rows="3" maxlength="5000"></textarea></label>
+          <button type="submit">가상 메모 추가</button>
+        </form>
+        <p id="note-error" class="auth-error" role="alert"></p>
+      </section>
+      <ul id="notes" aria-live="polite"></ul>
+    </div>
   </main>
-  <!-- 메모 목록은 로그인 세션 토큰이 필요해서 auth.js가 불러옵니다. -->
+  <!-- 메모 목록은 로그인 세션 토큰과 승인된 기기 서명이 필요해서 auth.js가 불러옵니다. -->
   <script type="module" src="/auth.js"></script>
   <!-- 11단계: 오프라인 안내만 켜고 끕니다. 자료를 저장하거나 캐시하지 않고, 승인 상태 표시는 바꾸지 않습니다. -->
   <script>
