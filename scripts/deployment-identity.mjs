@@ -34,7 +34,10 @@ export function deploymentIdentity(env, config) {
         || config.allowedRoutes.some(route => typeof route !== 'string' || !ROUTE.test(route))))
       // 5단계부터는 필수이고, 그 전이라도 값이 있으면 형식을 검사합니다.
       || ((config.step >= 5 || (config.originalApiUrl !== undefined && config.originalApiUrl !== null))
-        && !isOriginalApiUrl(config.originalApiUrl))) {
+        && !isOriginalApiUrl(config.originalApiUrl))
+      // 10단계: 복구 경로는 값이 있으면 허용 경로와 같은 「메서드 /경로」 모양이어야 합니다.
+      || (config.restoreRoute !== undefined && config.restoreRoute !== null
+        && (typeof config.restoreRoute !== 'string' || !ROUTE.test(config.restoreRoute)))) {
     throw new Error('배포 식별 정보를 확인할 수 없습니다. Vercel 시스템 환경변수와 aleph.config.json의 step을 확인하세요.');
   }
   return {
@@ -49,5 +52,7 @@ export function deploymentIdentity(env, config) {
     ...(Array.isArray(config.allowedRoutes) ? { allowedRoutes: [...config.allowedRoutes] } : {}),
     // 5단계부터 원본 자료 주소도 함께 기록합니다. 설정에 없으면 넣지 않습니다.
     ...(typeof config.originalApiUrl === 'string' ? { originalApiUrl: config.originalApiUrl } : {}),
+    // 10단계부터 복구 경로도 함께 기록합니다. 심판은 배포된 /aleph.json에서 이 값을 읽습니다. 없으면 넣지 않습니다.
+    ...(typeof config.restoreRoute === 'string' ? { restoreRoute: config.restoreRoute } : {}),
   };
 }

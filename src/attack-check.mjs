@@ -2,7 +2,7 @@
 // Never return tokens, private keys, real names, or note bodies.
 // 실제로 보낸 요청의 결과만 기록합니다. 심판의 판정이 아닙니다.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -22,6 +22,7 @@ export async function runAttackChecks(config) {
   if (config.step === 7) return runStepSevenChecks(app, config);
   if (config.step === 8) return runStepEightChecks(app, config);
   if (config.step === 9) return runStepNineChecks(app, config);
+  if (config.step === 10) return runStepTenChecks(app, config);
   const response = await fetch(new URL('/data.json', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
   });
@@ -230,5 +231,22 @@ async function runStepNineChecks(app, config) {
     ...await runStepEightChecks(app, config),
     { attackId: 'burst_read_revocation', expected: '같은 사용자가 10분 안에 GET 121건 이상이면 burst_read 회수 제안 뒤 그 접속 권한이 회수됨',
       observed: '미실행, 엔진 연결 필요 (실제 회수와 경과 시간은 심판이 확인. 로컬 가상 사건 연습은 npm run detect:test)' },
+  ];
+}
+
+// 10단계: 9단계 점검에 더해, 로그인 없이 복구 경로(POST /api/notes/:id/restore)를 실제로 보내 거부되는지 기록합니다.
+// 대상은 B 소유의 공개 가능한 시험 메모(고정 id)이며, 본문에 owner_id·내용을 넣어도 서버는 읽지 않아야 합니다.
+// 로그인이 필요한 복구 시험(B의 복구, A가 B 메모 복구)은 실제 계정 토큰이 필요해 미실행으로 남깁니다.
+async function runStepTenChecks(app, config) {
+  return [
+    ...await runStepNineChecks(app, config),
+    { attackId: 'anonymous_note_restore', expected: '로그인 없이 POST /api/notes/:id/restore 요청은 401 JSON으로 거부',
+      observed: `로그인 없이 B 시험 메모 복구: ${await attempt(new URL(`/api/notes/${B_TEST_NOTE_ID}/restore`, app), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ owner_id: '00000000-0000-4000-8000-000000000000', title: 'attack-check', body: '' }) })}` },
+    { attackId: 'owner_note_restore', expected: 'B 토큰으로 B 메모를 고치거나 지운 뒤 복구하면 200, 처음 만든 내용·소유자·지문이 사본과 같음',
+      observed: '미실행, 직접 확인 (실제 계정의 비밀번호·토큰이 필요해 자동 점검하지 않음)' },
+    { attackId: 'cross_owner_note_restore', expected: 'A 토큰으로 B 메모 복구는 404 BACKUP_NOT_FOUND, B 메모는 그대로',
+      observed: '미실행, 직접 확인 (실제 계정의 비밀번호·토큰이 필요해 자동 점검하지 않음)' },
   ];
 }

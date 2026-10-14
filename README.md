@@ -12,7 +12,7 @@
 
 ## 2단계: 자료를 코드 밖으로 옮김 (저장점)
 
-2단계 저장점 커밋은 `5c32482`입니다. 현재 상태는 아래 "5단계"~"9단계" 절을 보세요.
+2단계 저장점 커밋은 `5c32482`입니다. 현재 상태는 아래 "5단계"~"10단계" 절을 보세요.
 
 - 가상 메모는 Supabase 테이블 `byteback_vault_notes`에 있습니다. 테이블 생성·RLS·권한 SQL은 `supabase/byteback_vault_notes.sql`입니다. RLS가 켜져 있고 `anon`·`authenticated`에는 권한이 없습니다. 이 SQL은 이미 Supabase에서 실행했습니다.
 - 메모 네 건을 넣은 insert는 Git에서 제외된 로컬 전용 파일 `supabase/byteback_vault_notes.seed.local.sql`에만 있습니다(`.gitignore`의 `supabase/*.local.sql`). 저장소에는 메모 본문이 없으며, 이 insert는 이미 실행했으므로 다시 실행하면 메모가 중복됩니다.
@@ -51,7 +51,7 @@
 
 ## 3단계: 진짜 로그인을 붙임 (저장점)
 
-3단계 저장점 커밋은 `b596498`입니다. 현재 상태는 아래 "5단계"~"9단계" 절을 보세요.
+3단계 저장점 커밋은 `b596498`입니다. 현재 상태는 아래 "5단계"~"10단계" 절을 보세요.
 
 - **로그인 화면**: `public/auth.js`가 공식 `@supabase/supabase-js`(2.117.2)로 Supabase Auth 이메일·비밀번호 로그인·로그아웃을 처리합니다. 화면 코드에는 공개용 Project URL과 publishable key만 있습니다. 로그인에 실패하면 이유를 화면에 보여 주고, 로그인하면 입력 칸이 숨겨집니다.
 - **토큰 검사**: 자료 API는 `Authorization: Bearer <토큰>`을 시작 틀의 `src/verify-login.mjs`로 검사합니다. 브라우저가 보낸 `userId`·`role`·`owner_id`는 믿지 않습니다. 토큰이 없거나 검사에 실패하면 자료 없이 `401` JSON(`LOGIN_REQUIRED`)으로 거부합니다.
@@ -69,7 +69,7 @@
 
 ## 4단계: 로그인해도 내 자료만 보이게 함 (저장점)
 
-4단계 저장점 커밋은 `458c61e`입니다. 현재 상태는 아래 "5단계"~"9단계" 절을 보세요.
+4단계 저장점 커밋은 `458c61e`입니다. 현재 상태는 아래 "5단계"~"10단계" 절을 보세요.
 
 - **API 소유자 검사** (`src/notes-api.mjs`): 모든 읽기·추가·수정·삭제가 `src/verify-login.mjs`로 검증된 사용자 ID만 씁니다. URL·본문의 `owner_id`·`userId`·`role`은 읽지 않습니다.
   - 목록 `GET /api/notes`와 한 건 `GET /api/notes/:id`: `owner_id`가 본인인 행만
@@ -98,11 +98,11 @@
 
 **`npm run test:package`:** 3개 모두 통과하지만, 운영 측 기준표가 새 함수를 인정했다는 뜻은 아닙니다. 이 테스트는 `api/` 맨 위의 `.js` 파일만 기준표와 비교하므로 하위 폴더 `api/notes/`의 함수를 보지 않습니다. 운영 측 파일(`package/baseline-functions.json`, `test/package-starter.test.mjs`)은 바꾸지 않았습니다.
 
-다시 실행하는 방법: `npm ci` → `npm run build -- --local`(로컬 빌드 확인) → `npm run test:r5` → `npm run decider:test`(6·7단계) → `npm run fixture:7`(7단계) → `npm run detect:test`(9단계). 로그인과 메모 화면은 Vercel 배포에서만 확인할 수 있으며, Vercel 환경변수 `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, 서버 전용 `SUPABASE_SECRET_KEY`가 필요합니다. 값은 Vercel **Settings → Environment Variables**에 직접 넣습니다.
+다시 실행하는 방법: `npm ci` → `npm run build -- --local`(로컬 빌드 확인) → `npm run test:r5` → `npm run decider:test`(6·7단계) → `npm run fixture:7`(7단계) → `npm run detect:test`(9단계) → `npm run policy:diff`(10단계). 로그인과 메모 화면은 Vercel 배포에서만 확인할 수 있으며, Vercel 환경변수 `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, 서버 전용 `SUPABASE_SECRET_KEY`가 필요합니다. 값은 Vercel **Settings → Environment Variables**에 직접 넣습니다.
 
 ## 6단계: 등록한 기기만 자료실에 들어옵니다 (저장점)
 
-6단계 저장점 커밋은 `9bce033`입니다. 현재 상태는 아래 "8단계"·"9단계" 절을 보세요. 저장소·배포 주소·`identityProvider`·`allowedRoutes`(당시 여덟 경로, 8단계에서 세 경로로 바뀜)·`originalApiUrl`·`judgeIssuer`는 5단계와 같습니다. 6단계 당시 빌드가 만든 `aleph.json`에는 `step: 6`과 함께 `allowedRoutes`·`originalApiUrl`이 그대로 들어갑니다.
+6단계 저장점 커밋은 `9bce033`입니다. 현재 상태는 아래 "8단계"~"10단계" 절을 보세요. 저장소·배포 주소·`identityProvider`·`allowedRoutes`(당시 여덟 경로, 8단계에서 세 경로로 바뀜)·`originalApiUrl`·`judgeIssuer`는 5단계와 같습니다. 6단계 당시 빌드가 만든 `aleph.json`에는 `step: 6`과 함께 `allowedRoutes`·`originalApiUrl`이 그대로 들어갑니다.
 
 - **판정기 규칙** (`src/decider.mjs`, `device_registered`): `docs/DECIDER_REQUEST.md` 계약의 `deviceRegistered`가 정확히 `true`이고 `method`가 `GET`인 요청만 `allow`·`approved`로 허용합니다. `false`·값 없음·`"true"`·`1`은 `deny`·`device_not_registered`로 거부합니다. 등록 기기의 GET이 아닌 요청은 기본 거부(`starter.deny`, `starter_not_ready`)입니다. 요청이 객체가 아니어도 예외 없이 형식이 맞는 거부를 돌려줍니다.
 - 이번 과정에는 학생이 따로 설치할 접속 프로그램이 없습니다. 미등록 기기로 들어오는 공격은 심판이 맡습니다.
@@ -119,7 +119,7 @@
 
 ## 7단계: 평소와 다른 접속은 다시 확인합니다 (저장점)
 
-7단계 저장점 커밋은 `925731e`입니다. 현재 상태는 아래 "8단계"·"9단계" 절을 보세요. 저장소·배포 주소·`identityProvider`·`allowedRoutes`(당시 여덟 경로, 8단계에서 세 경로로 바뀜)·`originalApiUrl`·`judgeIssuer`는 5·6단계와 같고, 빌드가 만드는 `aleph.json`에는 `step: 7`과 함께 `allowedRoutes`·`originalApiUrl`이 그대로 들어갑니다. API·화면·DB는 6단계와 같고, 이번 단계는 판정기(`src/decider.mjs`)와 자기 점검만 바꿨습니다.
+7단계 저장점 커밋은 `925731e`입니다. 현재 상태는 아래 "8단계"~"10단계" 절을 보세요. 저장소·배포 주소·`identityProvider`·`allowedRoutes`(당시 여덟 경로, 8단계에서 세 경로로 바뀜)·`originalApiUrl`·`judgeIssuer`는 5·6단계와 같고, 빌드가 만드는 `aleph.json`에는 `step: 7`과 함께 `allowedRoutes`·`originalApiUrl`이 그대로 들어갑니다. API·화면·DB는 6단계와 같고, 이번 단계는 판정기(`src/decider.mjs`)와 자기 점검만 바꿨습니다.
 
 - **재로그인 계약**: `docs/DECIDER_REQUEST.md`의 `stepUp` `{verified, authAgeSeconds}`가 엔진이 확인해 넘기는 재인증 상태입니다. 판정기가 `step_up`을 돌려주면 엔진이 추가 본인 확인을 요청하고, 새 로그인 뒤 같은 요청을 `verified: true`로 다시 판정받습니다. 같은 사용자의 로그인인지 묶는 일은 엔진이 하며(계약에 세션 ID 없음), 토큰 원문은 판정 요청에 없고 판정기도 기록하지 않습니다.
 - **입력 검사** (`src/decider.mjs`): `signals.source`가 정확히 `judge_fixture`일 때만 `region`·`network`·`hour`를 씁니다. `none`·빈 값·다른 출처, `unknown`, 0~23 정수가 아닌 시각은 신호 없음이며 정상값으로 채우지 않습니다. `recentEvents`는 `{kind, ageSeconds, count}` 모양인 항목만 읽고 나머지는 버립니다.
@@ -135,7 +135,7 @@
 
 ## 8단계: 자료마다 갈 수 있는 구역을 나눕니다 (저장점)
 
-8단계 저장점 커밋은 `8832375`입니다. 현재 상태는 아래 "9단계" 절도 보세요. 저장소·배포 주소·`identityProvider`·`originalApiUrl`·`judgeIssuer`는 7단계와 같습니다. `allowedRoutes`는 판정기가 허용하는 세 경로 `GET /api/notes/:id`, `GET /api/notices`, `GET /api/notices/:id`뿐이며, 8단계 당시 빌드가 만든 `aleph.json`에는 `step: 8`·이 세 경로·`originalApiUrl`이 들어갔습니다. 메모 목록·쓰기, 로그인, 관리 경로의 서버 함수는 그대로 있지만 `allowedRoutes`에는 없습니다.
+8단계 저장점 커밋은 `8832375`입니다. 현재 상태는 아래 "9단계"·"10단계" 절도 보세요. 저장소·배포 주소·`identityProvider`·`originalApiUrl`·`judgeIssuer`는 7단계와 같습니다. `allowedRoutes`는 판정기가 허용하는 세 경로 `GET /api/notes/:id`, `GET /api/notices`, `GET /api/notices/:id`뿐이며, 8단계 당시 빌드가 만든 `aleph.json`에는 `step: 8`·이 세 경로·`originalApiUrl`이 들어갔습니다. 메모 목록·쓰기, 로그인, 관리 경로의 서버 함수는 그대로 있지만 `allowedRoutes`에는 없습니다.
 
 - **공지 자원** (`notices`): 반 공지는 메모(`notes`, `byteback_vault_notes`)와 다른 별도 테이블 `byteback_vault_notices`에 있습니다. `GET /api/notices`(목록)와 `GET /api/notices/:id`(한 건, `{id,title,body}`)는 로그인한 사용자만 읽고(`src/verify-login.mjs`), 쓰기는 누구에게나 405입니다(`src/notices-api.mjs`, `api/notices/`). 메모 경로에 공지 id를 넣거나 공지 경로에 메모 id를 넣어도 각각 404입니다.
 - **강사 목록 테이블** `byteback_vault_instructors`(`user_id uuid`): 강사 여부는 서버가 확인한 학생 로그인 사용자 ID가 이 테이블에 있는지로만 판단합니다. **처음에는 비어 있습니다.** 강사 계정 UUID는 학생이 SQL Editor에서 직접 넣고 저장소에는 적지 않습니다.
@@ -154,7 +154,7 @@
 
 ## 9단계: 도플갱어를 찾고 권한을 거둡니다 (저장점)
 
-현재 단계는 `aleph.config.json`의 `step: 9`입니다. 저장소·배포 주소·`identityProvider`·`originalApiUrl`·`judgeIssuer`·`allowedRoutes`(세 경로 `GET /api/notes/:id`, `GET /api/notices`, `GET /api/notices/:id`)는 8단계와 같고, 빌드가 만드는 `aleph.json`에 `step: 9`·세 경로·`originalApiUrl`이 들어갑니다. 이번 단계는 탐지 함수(`src/detect.mjs`)와 자기 점검만 바꿨습니다.
+9단계 저장점 커밋은 `4e3e743`입니다. 현재 상태는 아래 "10단계" 절을 보세요. 저장소·배포 주소·`identityProvider`·`originalApiUrl`·`judgeIssuer`·`allowedRoutes`(세 경로 `GET /api/notes/:id`, `GET /api/notices`, `GET /api/notices/:id`)는 8단계와 같고, 9단계 당시 빌드가 만든 `aleph.json`에는 `step: 9`·세 경로·`originalApiUrl`이 들어갔습니다. 이번 단계는 탐지 함수(`src/detect.mjs`)와 자기 점검만 바꿨습니다.
 
 - **탐지 입력** (`src/detect.mjs`, `readEvents`): `docs/DETECT_EVENTS.md`의 가상 사건에서 `at`·`method`·`identity.sub`(가명 사용자)만 읽고, 사건에 `deviceId`·`decision`·`network`가 있으면 그것만 더 읽습니다(이 세 이름은 현재 계약에 없어 연습 사건에서는 비어 있음). 본문·토큰·이름은 읽지도 저장하지도 출력하지도 않습니다. `at`이 올바른 ISO 시각이 아니거나 `identity.sub`가 빈 값이면 그 사건만 버리고, `events`가 배열이 아니면 `TypeError`입니다.
 - **탐지 규칙** (`burst_read`): 같은 `identity.sub`의 GET 사건이 어느 10분 구간에서든(밀어 가며, 첫·마지막 사건 차이 10분 미만) **120건을 넘으면**(121건부터) `{ action: 'propose_revocation', reasonCode: 'burst_read', subject }`, 아니면 `{ action: 'observe' }`입니다. 정확히 120건은 제안하지 않고, 사용자끼리 합치지 않으며, 순서가 섞여도 시각 순으로 셉니다. 사건에 네트워크 값이 있으면 `usual`이 아닌 사건만 세고, 없으면 다량 조회만으로 판단합니다. 지역 값은 쓰지 않습니다. 여러 사용자가 넘으면 가장 먼저 넘은 한 명만 돌려줍니다.
@@ -169,13 +169,77 @@
 
 세 명령 모두 로컬 가상 연습이며 실제 접속 회수나 심판 판정이 아닙니다.
 
+## 10단계: 백업에서 자료실을 되살립니다 (저장점)
+
+현재 단계는 `aleph.config.json`의 `step: 10`입니다. 저장소·배포 주소·`identityProvider`·`originalApiUrl`·`judgeIssuer`·`allowedRoutes`(세 경로 `GET /api/notes/:id`, `GET /api/notices`, `GET /api/notices/:id`)는 9단계와 같고, 이번 단계에서 `restoreRoute`에 `POST /api/notes/:id/restore`를 적었습니다. 빌드가 만드는 `aleph.json`에 `step: 10`·세 경로·`originalApiUrl`·`restoreRoute`가 들어갑니다.
+
+### 정책 사본과 되돌리기
+
+- **안전 정책 사본** `policy/verified-policy.json`: 9단계 저장점 커밋 `4e3e743`을 침해 전에 검증한 상태로 삼아, 판정기 `RULE_IDS`·판정기 파일 지문(SHA-256)과 `aleph.config.json`의 `allowedRoutes`·`originalApiUrl`·`identityProvider`를 담았습니다(버전 `safe-policy-step9-4e3e743`, 비밀값 없음). 사본 파일 전체의 지문은 `policy/verified-policy.sha256`에 따로 있습니다. 지문은 줄바꿈을 LF로 맞춘 내용의 SHA-256입니다.
+- `npm run policy:diff`(읽기 전용): 사본 지문을 검증하고, 파일이 없거나 지문이 다르면 비교하지 않고 멈춥니다. 검증되면 복원할 버전과 현재 값과 다른 항목만, 같으면 「차이 없음」을 보여 줍니다.
+- `npm run policy:restore`: 기본은 미리보기(바뀔 항목만 표시)이고, `-- --apply`를 붙였을 때만 사본에 있는 항목을 되돌립니다. 판정기는 기준 커밋 파일을 git에서 꺼내 지문이 사본과 같을 때만 덮어쓰고, config는 사본에 있는 칸만 바꿉니다(`step`·`judgeIssuer`·`restoreRoute` 등은 그대로). 사본 검증 실패·기준 커밋 없음·지문 불일치면 아무것도 바꾸지 않고 멈춥니다. 되돌릴 때마다 `policy/restore-log.jsonl`에 시각·버전·바뀐 항목 이름만 한 줄 덧붙입니다. 이 파일의 첫 줄(`2026-10-14T02:10:59.001Z`, `decider.ruleIds`·`decider.sha256`)은 **제작 2에서 시험으로 한 번 되돌린 기록**입니다(판정기 `RULE_IDS`에서 규칙 하나를 일부러 지운 뒤 되돌림). 지우지 않고 감사 이력으로 남깁니다.
+- 두 명령은 빌드·배포에서 자동으로 돌지 않으며 DB·Vercel 설정을 건드리지 않습니다.
+
+### 메모 한 건 복구 (서비스 `notes`)
+
+- **복구 경로**: `POST /api/notes/:id/restore`(`api/notes/[id]/restore.js`). `aleph.config.json`의 `restoreRoute`에 적었고, 빌드가 만드는 `aleph.json`에도 `restoreRoute`가 들어갑니다(`scripts/deployment-identity.mjs`, 형식이 틀리면 빌드 실패). 심판은 배포된 `/aleph.json`에서 이 값을 읽습니다. `allowedRoutes`와 판정기는 바꾸지 않았습니다.
+- **파일 구조**: `:id`와 같은 깊이에 기능 경로를 두지 않으려고 한 칸 더 깊게 두었습니다. 기존 `api/notes/[id].js`를 `api/notes/[id]/index.js`로 옮겨(주소 `/api/notes/:id`는 같음) 같은 폴더에 `restore.js`를 두었습니다.
+- **사본·감사 테이블** (`supabase/byteback_vault_notes_step10_backup.sql`): `byteback_vault_note_backups`(note_id 기본키, owner_id, title, content, content_sha256, backed_up_at)와 `byteback_vault_audit`(id, at, actor_id, action, note_id, before_sha256, after_sha256). 감사 기록에는 메모 본문이 없습니다. 두 테이블 모두 RLS를 켜고 `PUBLIC`·`anon`·`authenticated` 권한을 회수했으며, `service_role`에도 SELECT·INSERT만 주어 사본과 감사 기록은 덧붙이기만 됩니다. 기존 메모는 메모 테이블에서 select로 사본에 옮깁니다(본문은 SQL 파일에 없음). 기존 테이블의 구조와 권한은 바꾸지 않습니다. **학생이 검토한 뒤 SQL Editor에서 직접 실행했습니다.** 학생이 확인한 결과: 두 테이블 RLS true, `anon`·`authenticated`의 사본 읽기 false, `anon`의 감사 읽기 false, `service_role`의 사본 수정 false, 메모 5건과 사본 5건, 감사 기록 `backup_import` 5줄.
+- **메모 API 변경** (`src/notes-api.mjs`): POST(추가)가 성공하면 사본에 저장하고 감사에 `create`를 남깁니다. 사본이 이미 있는 ID(지워진 메모 포함)로는 새 메모를 만들 수 없습니다(409). PUT·DELETE는 사본을 바꾸지 않고 감사에 `update`·`delete`와 전후 지문만 남깁니다.
+- **복구 순서**: 로그인 토큰 검사(`src/verify-login.mjs`, 실패 401) → 사본 조회(없으면 404) → 사본 `owner_id` = 검증된 사용자(다르면 404) → 사본 본문 SHA-256 재계산 = `content_sha256`(다르면 409, 아무것도 바꾸지 않음) → 메모 테이블의 그 ID 한 건만 사본의 `owner_id`·`title`·`content`로 되돌림(삭제됐으면 다시 넣고, 변조됐으면 덮어씀. 같은 ID에 다른 소유자의 메모가 있으면 409) → 감사에 `restore`. 응답은 한 건 GET과 같은 `{id,title,body}`입니다. 요청 본문·쿼리·헤더의 `owner_id`·`role`·내용은 읽지 않습니다.
+- **한계**: 사본은 메모를 처음 만들 때 저장되며, 이후 수정은 사본에 반영되지 않습니다. 그래서 복구하면 처음 만든 내용으로 돌아갑니다. `content_sha256`은 본문만의 지문이라 사본의 제목·소유자가 바뀐 것은 지문으로 잡지 못합니다(사본 테이블은 `service_role`에도 UPDATE 권한이 없음).
+- 시험은 공개 가능한 가상 메모와 시험 계정 B의 메모로만 합니다.
+- **자기 점검** (`src/attack-check.mjs`, `step: 10`): 9단계 점검에 더해 로그인 없이 `POST /api/notes/:id/restore`(B 시험 메모, 본문에 `owner_id`를 넣음)를 실제로 보내 결과를 기록합니다. B의 복구, A가 B 메모 복구 시험은 실제 계정 토큰이 필요해 「미실행」으로 남깁니다. 학생의 자기 점검이며 심판 판정이 아닙니다.
+
+### 확인 순서
+
+1. `npm run policy:diff`: 「차이 없음」.
+2. `npm run decider:test`(네 줄 통과), `npm run detect:test`(여섯 줄 통과), `npm run fixture:7`(`정상 사건: allow`, `복합 이상 사건: step_up`). 로컬 가상 연습이며 심판 판정이 아닙니다.
+3. SQL 실행과 배포 뒤 로그인 없이 `POST /api/notes/<id>/restore`는 401 JSON이어야 합니다. B로 로그인해 B 메모를 고치거나 지운 뒤 복구하면 처음 만든 내용으로 돌아와야 하고, A 토큰으로 같은 복구를 요청하면 404여야 합니다.
+4. 심판의 복구 시험은 이 PC에서 **미실행**입니다.
+
+### 복구 뒤 1~9단계 재확인 순서
+
+복구(정책 되돌리기나 메모 복구)를 한 뒤 아래 순서대로 다시 확인합니다. **결과 칸은 실제로 실행한 것만 적었습니다.** 2026-10-14 02:24 UTC에 실행했고, 그때 배포는 9단계 커밋 `4e3e743`이었습니다(10단계 변경은 아직 배포 전). 로그인 토큰이나 반 엔진이 필요한 확인은 「미실행」입니다. npm 연습 명령은 로컬 가상 연습이며 심판 판정이 아닙니다. 요청의 `<배포 주소>`는 `https://choi-bujang-secret-vault-2-gray.vercel.app`입니다.
+
+| 순서 | 단계 | 구분 | 확인 방법 | 기대 결과 | 결과 |
+|---|---|---|---|---|---|
+| 0 | 10 | 정책 | `npm run policy:diff` | 사본 검증됨, 「차이 없음」(차이가 있으면 `npm run policy:restore` 미리보기 → `-- --apply`) | 검증됨 · 차이 없음 |
+| 1 | 1 | 정상 | `GET <배포 주소>/` | 200, 자료실 화면 | 200 |
+| 2 | 1 | 금지 | `GET <배포 주소>/aleph.json` | 메모 칸·비밀값·이메일 없음 | 메모 칸 없음 · 비밀값·이메일 패턴 없음 |
+| 3 | 2 | 정상 | 화면에서 A로 로그인 | 자기 메모 목록 표시 | 미실행 |
+| 4 | 2 | 금지 | `GET <배포 주소>/data.json` | 404, 메모 없음 | 404 |
+| 5 | 3 | 정상 | A 토큰으로 `GET /api/notes` | 200, 자기 메모 배열 | 미실행 |
+| 6 | 3 | 금지 | 로그인 없이 `GET /api/notes` | 401 `LOGIN_REQUIRED` | 401 `LOGIN_REQUIRED` |
+| 7 | 3 | 금지 | 로그인 없이 `POST /api/notes` | 401 `LOGIN_REQUIRED` | 401 `LOGIN_REQUIRED` |
+| 8 | 4 | 정상 | A 토큰으로 `GET /api/notes/<A 메모 id>` | 200 `{id,title,body}` | 미실행 |
+| 9 | 4 | 금지 | A 토큰으로 B 메모 `GET`·`PUT`·`DELETE /api/notes/<B 메모 id>` | 모두 404 `NOTE_NOT_FOUND` | 미실행 |
+| 10 | 4 | 금지 | 로그인 없이 `GET /api/notes/b4b4b4b4-0000-4000-8000-00000000b004` | 401 `LOGIN_REQUIRED` | 401 `LOGIN_REQUIRED` |
+| 11 | 5 | 정상 | A로 로그인해 화면에서 메모 추가·수정·삭제 | 서버 함수로 처리됨 | 미실행 |
+| 12 | 5 | 금지 | 키 없이 `GET https://yldhutxatzstfanadlsg.supabase.co/rest/v1/byteback_vault_notes` | 401, 메모 없음 | 401 (Supabase 오류 JSON, 메모 없음) |
+| 13 | 5 | 금지 | A 로그인 토큰과 공개 키로 같은 원본 주소 직접 조회 | 거부(권한 없음) | 미실행 |
+| 14 | 6 | 정상·금지 | `npm run decider:test` | 4줄 통과(등록 기기 allow, 미등록 기기 deny·`device_not_registered` 포함) | 4줄 통과 |
+| 15 | 6 | 금지 | 엔진을 거친 미등록 기기 접속 | deny | 미실행 (심판 확인) |
+| 16 | 7 | 정상·금지 | `npm run fixture:7` | `정상 사건: allow`, `복합 이상 사건: step_up` | allow / step_up |
+| 17 | 7 | 금지 | 엔진을 거친 평소와 다른 접속(재인증 전) | 자료 없이 step_up | 미실행 (엔진 연결 필요) |
+| 18 | 8 | 정상 | A 토큰으로 `GET /api/notices` | 200, 공지 목록 | 미실행 |
+| 19 | 8 | 금지 | `PUT /api/notices/c8c8c8c8-0000-4000-8000-00000000c008` (공지 쓰기) | 405 `METHOD_NOT_ALLOWED` | 405 `METHOD_NOT_ALLOWED` |
+| 20 | 8 | 금지 | 로그인 없이 `PUT /api/admin/notices/<공지 id>` (본문에 `role: instructor`) | 401 `LOGIN_REQUIRED` | 401 `LOGIN_REQUIRED` |
+| 21 | 8 | 금지 | A 토큰으로 `PUT /api/admin/notices/<공지 id>` | 403 `NOT_INSTRUCTOR` | 미실행 |
+| 22 | 8 | 금지 | 로그인 없이 `GET /api/notices` | 401 `LOGIN_REQUIRED` | 401 `LOGIN_REQUIRED` |
+| 23 | 9 | 정상·금지 | `npm run detect:test` | 6줄 통과(120건 observe, 121건 `burst_read` 포함) | 6줄 통과 |
+| 24 | 9 | 금지 | 엔진을 거친 다량 조회 회수 집행 | 회수됨 | 미실행 (엔진 연결 필요, 심판 확인) |
+| 25 | 10 | 정상 | B 토큰으로 B 메모를 고친 뒤 `POST /api/notes/<B 메모 id>/restore` | 200, 처음 만든 내용 | 미실행 |
+| 26 | 10 | 금지 | A 토큰으로 `POST /api/notes/<B 메모 id>/restore` | 404 `BACKUP_NOT_FOUND` | 미실행 |
+| 27 | 10 | 금지 | 로그인 없이 `POST /api/notes/b4b4b4b4-0000-4000-8000-00000000b004/restore` | 401 JSON | 404 (그때 배포 `4e3e743`에는 복구 경로가 없음. 10단계 배포 뒤 다시 확인) |
+
 ## 시작 틀의 자동 처리
 
 `vercel.json`은 정적 결과물 `public`을 배포합니다. 빌드 명령 `npm run build`는 Vercel이 제공하는 GitHub 저장소 소유자·이름, 커밋 SHA, 배포 URL을 검증하고 `public/aleph.json`을 생성합니다. 이 값이 없으면 빌드가 실패하므로, 성공한 것처럼 빈 주소를 내보내지 않습니다. `aleph.json`의 내용만으로 저장소 소유권이나 방어 성공을 인정하지 않습니다. 심판이 공개 저장소의 실제 커밋과 배포된 자료를 따로 대조해야 합니다.
 
 `aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 1단계에서는 자리표시자였고, 2단계 저장점에서 실제 저장소·배포 주소로 바꿨습니다. 2단계 이후 코딩 도구가 필요한 설정과 보호 기능을 단계별로 작성합니다. `npm run bundle`과 `bundle-notes.json`은 1단계의 세 걸음에는 포함되지 않습니다.
 
-로컬에서 빌드만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. 저장소의 `src/attack-check.mjs`는 실제 배포가 된 뒤 `aleph.config.json`의 `step`에 맞는 점검 요청을 보냅니다. 1단계는 `/data.json`의 공개 메모 확인 표시, 2단계는 `/data.json`과 비로그인 `/api/notes`, 3단계는 비로그인·가짜 토큰 요청의 거부 여부, 4단계는 비로그인·가짜 토큰으로 남의 메모를 요청했을 때의 거부 여부를 기록하고 A/B 교차 점검은 미실행으로 남깁니다. 5단계는 키 없이 원본 자료 주소를 직접 조회했을 때와 비로그인 `/api/notes`의 거부 여부를 기록하고, 로그인이 필요한 점검은 미실행으로 남깁니다. 6단계는 5단계 점검을 다시 보내고, 미등록 기기 접속 점검은 심판 몫이라 미실행으로 남깁니다. 7단계는 6단계 점검을 다시 보내고, 재인증 전 차단 점검은 엔진 연결이 필요해 미실행으로 남깁니다. 8단계는 7단계 점검에 더해 로그인 없이 공지 목록과 강사 관리 경로를 요청한 결과를 기록하고, 로그인이 필요한 교차 점검은 미실행으로 남깁니다. 9단계는 8단계 점검을 다시 보내고, 회수 집행 점검은 엔진 연결이 필요해 미실행으로 남깁니다.
+로컬에서 빌드만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. 저장소의 `src/attack-check.mjs`는 실제 배포가 된 뒤 `aleph.config.json`의 `step`에 맞는 점검 요청을 보냅니다. 1단계는 `/data.json`의 공개 메모 확인 표시, 2단계는 `/data.json`과 비로그인 `/api/notes`, 3단계는 비로그인·가짜 토큰 요청의 거부 여부, 4단계는 비로그인·가짜 토큰으로 남의 메모를 요청했을 때의 거부 여부를 기록하고 A/B 교차 점검은 미실행으로 남깁니다. 5단계는 키 없이 원본 자료 주소를 직접 조회했을 때와 비로그인 `/api/notes`의 거부 여부를 기록하고, 로그인이 필요한 점검은 미실행으로 남깁니다. 6단계는 5단계 점검을 다시 보내고, 미등록 기기 접속 점검은 심판 몫이라 미실행으로 남깁니다. 7단계는 6단계 점검을 다시 보내고, 재인증 전 차단 점검은 엔진 연결이 필요해 미실행으로 남깁니다. 8단계는 7단계 점검에 더해 로그인 없이 공지 목록과 강사 관리 경로를 요청한 결과를 기록하고, 로그인이 필요한 교차 점검은 미실행으로 남깁니다. 9단계는 8단계 점검을 다시 보내고, 회수 집행 점검은 엔진 연결이 필요해 미실행으로 남깁니다. 10단계는 9단계 점검에 더해 로그인 없이 복구 경로를 요청한 결과를 기록하고, 로그인이 필요한 복구 시험은 미실행으로 남깁니다.
 
 ## 다음 단계의 코딩 도구에 전달할 규칙
 

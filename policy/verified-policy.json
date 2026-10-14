@@ -1,0 +1,41 @@
+{
+  "schema": "byteback.verified-policy.v1",
+  "version": "safe-policy-step9-4e3e743",
+  "baseCommit": "4e3e743f73098980dc6d2e9c12839b3c24fe2ad0",
+  "note": "침해 전에 검증한 9단계 저장점의 안전 정책 사본입니다. 비밀값은 없습니다. 지문은 줄바꿈을 LF로 맞춘 내용의 SHA-256입니다.",
+  "decider": {
+    "file": "src/decider.mjs",
+    "sha256": "0b98738a9301b275cdf7bf839b399514926a61447fdab48a45989a957029c44b",
+    "ruleIds": [
+      "starter.deny",
+      "device_registered",
+      "step_up_required",
+      "anomaly.region",
+      "anomaly.network",
+      "anomaly.hour",
+      "anomaly.burst",
+      "zone.notes.read",
+      "zone.notices.read",
+      "zone.notes.list",
+      "zone.notes.write",
+      "zone.notices.write",
+      "zone.instructor",
+      "zone.route_mismatch",
+      "zone.query",
+      "zone.unknown"
+    ]
+  },
+  "config": {
+    "allowedRoutes": [
+      "GET /api/notes/:id",
+      "GET /api/notices",
+      "GET /api/notices/:id"
+    ],
+    "originalApiUrl": "https://yldhutxatzstfanadlsg.supabase.co/rest/v1/byteback_vault_notes",
+    "identityProvider": {
+      "issuer": "https://yldhutxatzstfanadlsg.supabase.co/auth/v1",
+      "audience": "authenticated",
+      "jwksUrl": "https://yldhutxatzstfanadlsg.supabase.co/auth/v1/.well-known/jwks.json"
+    }
+  }
+}
