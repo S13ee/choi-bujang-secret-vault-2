@@ -109,6 +109,43 @@ export function readDeviceHeaders(request) {
   return Object.values(values).every(Boolean) ? values : null;
 }
 
+// Vercel은 대괄호 경로(api/devices/[action].js, api/notes/[id]…)를 부를 때 경로 값을 request.url 쿼리로
+// 덧붙일 수 있습니다(예: /api/devices/request?action=request). 서명 경로에서는 그렇게 덧붙은 항목만 뺍니다:
+// 이름이 그 경로의 대괄호 칸(action·id)이고, 디코딩한 값이 경로의 그 칸(디코딩한 값)과 정확히 같은 항목(뒤쪽 하나).
+// 그 밖의 쿼리는 원래 순서·표기 그대로 남기므로, 쿼리를 덧붙이거나 경로를 바꾼 요청은 계속 서명이 맞지 않습니다.
+const DYNAMIC_ROUTES = [
+  ['api', 'devices', ':action'],
+  ['api', 'notes', ':id'],
+  ['api', 'notes', ':id', 'restore'],
+  ['api', 'notices', ':id'],
+  ['api', 'admin', 'notices', ':id'],
+];
+const decode = text => {
+  try { return decodeURIComponent(text.replace(/\+/gu, ' ')); } catch { return null; }
+};
+
+export function signedPath(url) {
+  const at = url.indexOf('?');
+  if (at < 0) return url;
+  const path = url.slice(0, at);
+  const segments = path.split('/').slice(1).map(segment => {
+    try { return decodeURIComponent(segment); } catch { return null; }
+  });
+  const route = DYNAMIC_ROUTES.find(parts => parts.length === segments.length
+    && parts.every((part, index) => part.startsWith(':') || part === segments[index]));
+  const params = route ? Object.fromEntries(route.flatMap((part, index) => (part.startsWith(':') ? [[part.slice(1), segments[index]]] : []))) : {};
+  const items = url.slice(at + 1).split('&');
+  for (const [name, value] of Object.entries(params)) {
+    if (value === null) continue;
+    for (let index = items.length - 1; index >= 0; index -= 1) {
+      const [rawName, ...rest] = items[index].split('=');
+      if (decode(rawName) === name && decode(rest.join('=')) === value) { items.splice(index, 1); break; }
+    }
+  }
+  // 덧붙은 항목을 빼고 남은 것이 없으면 경로만, 있으면 원래 순서대로 "?"와 함께 붙입니다.
+  return items.length === 0 ? path : `${path}?${items.join('&')}`;
+}
+
 // 시각·서명·1회용 번호를 차례로 확인합니다. 공개 키는 호출하는 쪽이 넘깁니다(DB의 키 또는 등록 요청 본문의 키).
 export async function verifySignedRequest({ request, headers, publicKeyJwk, supabase, now = Date.now() }) {
   const timestamp = /^\d{1,16}$/u.test(headers.timestamp) ? Number(headers.timestamp) : NaN;
@@ -116,12 +153,18 @@ export async function verifySignedRequest({ request, headers, publicKeyJwk, supa
     return fail(401, 'DEVICE_SIGNATURE_EXPIRED');
   }
   if (!NONCE.test(headers.nonce) || !DEVICE_ID.test(headers.deviceId)) return fail(401, 'DEVICE_SIGNATURE_INVALID');
+  const rawUrl = typeof request.url === 'string' ? request.url : '';
+  const path = signedPath(rawUrl);
   const message = signingString({
-    method: request.method, url: typeof request.url === 'string' ? request.url : '',
+    method: request.method, url: path,
     timestamp: headers.timestamp, nonce: headers.nonce, deviceId: headers.deviceId,
     bodyHash: await bodySha256(request.body),
   });
-  if (!await verifySignature(publicKeyJwk, headers.signature, message)) return fail(401, 'DEVICE_SIGNATURE_INVALID');
+  if (!await verifySignature(publicKeyJwk, headers.signature, message)) {
+    // 서명이 틀렸을 때만 메서드·요청 주소 원문·서명에 쓴 경로를 한 줄 남깁니다(헤더·토큰·서명 값·본문은 남기지 않음).
+    console.warn(`[sig11] ${JSON.stringify({ method: request.method, url: rawUrl.slice(0, 300), signedPath: path.slice(0, 300) })}`);
+    return fail(401, 'DEVICE_SIGNATURE_INVALID');
+  }
   const { error } = await supabase.from(NONCES).insert({ device_id: headers.deviceId, nonce: headers.nonce });
   if (error?.code === '23505') return fail(401, 'DEVICE_NONCE_REUSED');
   if (error) return fail(502, 'DEVICES_UNAVAILABLE');
