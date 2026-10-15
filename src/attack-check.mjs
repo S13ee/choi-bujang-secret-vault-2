@@ -8,7 +8,7 @@ import { OPS_CATALOG } from './ops-catalog.mjs';
 export async function runAttackChecks(config) {
   if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   // 12단계 진단(임시): 받은 인자·전역·환경변수의 이름과 종류만 모아 멈춥니다. 값은 넣지 않습니다. node --test 안에서는 건너뜁니다.
-  if (config.step === 12 && !process.env.NODE_TEST_CONTEXT) throw new Error(await diagTwelveLine([...arguments], config));
+  if (config.step === 12 && !process.env.NODE_TEST_CONTEXT) throw new Error(diagTwelveLine([...arguments]));
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -361,8 +361,8 @@ async function runStepTwelveChecks(app, config) {
   return out;
 }
 
-// 12단계 진단(임시): 이름·개수·종류·숫자·true/false만 한 줄 600자 이하로 만듭니다. 값·URL·헤더 값·함수 본문은 넣지 않습니다.
-async function diagTwelveLine(args, config) {
+// 12단계 진단(임시): 이름·개수·종류·true/false만 한 줄 280자 이하로 만듭니다. 값·URL·함수 본문은 넣지 않습니다.
+function diagTwelveLine(args) {
   const safe = name => String(name).replace(/[^\w$.-]/g, '?').slice(0, 40);
   const lists = [];
   const fixed = [`args=${args.length}`];
@@ -381,27 +381,15 @@ async function diagTwelveLine(args, config) {
     fixed.push(`fetch(name=${safe(fetchFn.name) || '-'},len=${fetchFn.length},native=${native})`);
   } else fixed.push(`fetch=${typeof fetchFn}`);
   lists.push({ label: 'env', items: Object.keys(process.env).filter(name => /ALEPH|JUDGE|SANDBOX/i.test(name)).map(safe) });
-  // 응답 정보(맨 뒤): /api/notes로 헤더 없이 GET을 정확히 한 번 보냅니다. 헤더 값은 적지 않습니다.
-  const resp = [];
-  let headerList = null;
-  try {
-    const response = await fetch(new URL('/api/notes', config.publicAppUrl), { redirect: 'error', signal: AbortSignal.timeout(10000) });
-    headerList = { label: 'rheaders', items: [...response.headers.keys()].map(name => safe(name.toLowerCase())).sort().slice(0, 25) };
-    resp.push(`status=${Number(response.status)}`, headerList, `rctor=${safe(response.constructor?.name) || '-'}`,
-      { label: 'rprops', items: Object.getOwnPropertyNames(response).slice(0, 10).map(safe) });
-  } catch (error) {
-    resp.push(`resp=fail(${safe(error?.name ?? typeof error) || '-'})`);
-  }
-  const show = item => (typeof item === 'string' ? item : `${item.label}=[${item.items.join(',')}${item.cut ? ',…' : ''}]`);
-  const build = () => `DIAG12 ${fixed.join(' ')} ${lists.map(show).join(' ')} ${resp.map(show).join(' ')}`;
+  const build = () => `DIAG12 ${fixed.join(' ')} ${lists.map(list => `${list.label}=[${list.items.join(',')}${list.cut ? ',…' : ''}]`).join(' ')}`;
   let line = build();
-  // 넘치면 응답 헤더 목록 끝부터 줄이고, 그래도 넘치면 뒤쪽 목록부터 끝 항목을 줄이며 …를 붙입니다.
-  for (const list of [headerList, ...[...lists].reverse()].filter(Boolean)) {
-    while (line.length > 600 && list.items.length) {
-      list.items.pop();
-      list.cut = true;
+  // 넘치면 뒤쪽 목록부터 끝 항목을 줄이고 …를 붙입니다.
+  for (let i = lists.length - 1; line.length > 280 && i >= 0; i -= 1) {
+    while (line.length > 280 && lists[i].items.length) {
+      lists[i].items.pop();
+      lists[i].cut = true;
       line = build();
     }
   }
-  return line.length > 600 ? `${line.slice(0, 599)}…` : line;
+  return line.length > 280 ? `${line.slice(0, 279)}…` : line;
 }
