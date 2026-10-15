@@ -1,0 +1,167 @@
+{
+  "schema": "aleph.xdr.result.v1",
+  "moduleKey": "privilege",
+  "decisions": [
+    {
+      "alertId": "pv-01",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "admin-group-add · level 12(attack)"
+    },
+    {
+      "alertId": "pv-02",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "first-seen-admin-command · level 12(attack)"
+    },
+    {
+      "alertId": "pv-03",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "first-seen-admin-command+off-hours-privilege-use · level 11(attack)"
+    },
+    {
+      "alertId": "pv-04",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "admin-group-add+first-seen-admin-command · level 12(attack)"
+    },
+    {
+      "alertId": "pv-05",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "admin-group-add · level 10(attack)"
+    },
+    {
+      "alertId": "pv-06",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "first-seen-admin-command · level 12(attack)"
+    },
+    {
+      "alertId": "pv-07",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "admin-group-add+off-hours-privilege-use · level 11(attack)"
+    },
+    {
+      "alertId": "pv-08",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "first-seen-admin-command · level 12(attack)"
+    },
+    {
+      "alertId": "pv-09",
+      "action": "block",
+      "confidence": 0.95,
+      "reason": "admin-group-add · level 10(attack)"
+    },
+    {
+      "alertId": "pv-10",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "no-signal · level 6(ambiguous)"
+    },
+    {
+      "alertId": "pv-11",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "no-signal · level 7(ambiguous)"
+    },
+    {
+      "alertId": "pv-12",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "no-signal · level 5(ambiguous)"
+    },
+    {
+      "alertId": "pv-13",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "no-signal · level 6(ambiguous)"
+    },
+    {
+      "alertId": "pv-14",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "no-signal · level 8(ambiguous)"
+    },
+    {
+      "alertId": "pv-15",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "no-signal · level 6(ambiguous)"
+    },
+    {
+      "alertId": "pv-16",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "no-signal · level 7(ambiguous)"
+    },
+    {
+      "alertId": "pv-17",
+      "action": "alert",
+      "confidence": 0.55,
+      "reason": "no-signal · level 5(ambiguous)"
+    },
+    {
+      "alertId": "pv-18",
+      "action": "record",
+      "confidence": 0.1,
+      "reason": "no-signal · no-privilege-mitre · level 3(normal)"
+    },
+    {
+      "alertId": "pv-19",
+      "action": "record",
+      "confidence": 0.1,
+      "reason": "no-signal · no-privilege-mitre · level 3(normal)"
+    },
+    {
+      "alertId": "pv-20",
+      "action": "record",
+      "confidence": 0.1,
+      "reason": "no-signal · no-privilege-mitre · level 2(normal)"
+    },
+    {
+      "alertId": "pv-21",
+      "action": "record",
+      "confidence": 0.1,
+      "reason": "no-signal · no-privilege-mitre · level 3(normal)"
+    },
+    {
+      "alertId": "pv-22",
+      "action": "record",
+      "confidence": 0.1,
+      "reason": "no-signal · no-privilege-mitre · level 3(normal)"
+    },
+    {
+      "alertId": "pv-23",
+      "action": "record",
+      "confidence": 0.1,
+      "reason": "no-signal · no-privilege-mitre · level 2(normal)"
+    },
+    {
+      "alertId": "pv-24",
+      "action": "record",
+      "confidence": 0.1,
+      "reason": "no-signal · no-privilege-mitre · level 3(normal)"
+    },
+    {
+      "alertId": "pv-25",
+      "action": "record",
+      "confidence": 0.1,
+      "reason": "no-signal · no-privilege-mitre · level 3(normal)"
+    },
+    {
+      "alertId": "pv-26",
+      "action": "record",
+      "confidence": 0.1,
+      "reason": "no-signal · no-privilege-mitre · level 2(normal)"
+    }
+  ],
+  "counts": {
+    "block": 9,
+    "alert": 8,
+    "record": 9
+  }
+}
