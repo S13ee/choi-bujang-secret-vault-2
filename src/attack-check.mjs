@@ -196,7 +196,7 @@ async function runStepSixChecks(app, config) {
   return [
     ...await runStepFiveChecks(app, config),
     { attackId: 'unregistered_device_access', expected: '미등록 기기의 자료실 요청은 deny·device_not_registered로 거부',
-      observed: '미실행, 심판이 확인 (학생 점검에는 미등록 기기로 접속할 수단이 없음. 로컬 가상 요청 연습은 npm run decider:test)' },
+      observed: '미실행 (학생 점검에는 미등록 기기로 접속할 수단이 없음. 심판 쪽 결과는 미확인. 로컬 가상 요청 연습은 npm run decider:test)' },
   ];
 }
 
@@ -237,7 +237,7 @@ async function runStepNineChecks(app, config) {
   return [
     ...await runStepEightChecks(app, config),
     { attackId: 'burst_read_revocation', expected: '같은 사용자가 10분 안에 GET 121건 이상이면 burst_read 회수 제안 뒤 그 접속 권한이 회수됨',
-      observed: '미실행, 엔진 연결 필요 (실제 회수와 경과 시간은 심판이 확인. 로컬 가상 사건 연습은 npm run detect:test)' },
+      observed: '미실행, 엔진 연결 필요 (실제 회수와 경과 시간은 미확인, 확인 주체는 심판. 로컬 가상 사건 연습은 npm run detect:test)' },
   ];
 }
 

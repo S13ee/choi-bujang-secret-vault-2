@@ -52,7 +52,7 @@
   <main>
     <div class="eyebrow">BYTE BACK · 5단계 서버 한곳으로</div>
     <h1>점령된 자료실</h1>
-    <!-- 11단계: 기기 승인 상태. 서버 확인 기능이 아직 없어 항상 "확인 전"입니다. 설치·독립 창 여부로 바꾸지 않습니다. -->
+    <!-- 11단계: 기기 승인 상태. public/auth.js가 /api/devices 서버 응답으로만 바꾸고, 응답 전에는 "확인 전"입니다. 설치·독립 창 여부로 바꾸지 않습니다. -->
     <div id="device-status" class="device-status" role="status">
       기기 승인 상태: <b id="device-approval">확인 전</b><br>
       앱으로 설치하거나 독립 창으로 열어도 기기 확인이 끝난 것이 아닙니다. 기기 승인은 서버 확인으로만 정해집니다.
