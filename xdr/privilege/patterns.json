@@ -1,0 +1,78 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "privilege",
+  "source": "MITRE ATT&CK T1068(Exploitation for Privilege Escalation, 권한 상승 악용), T1078(Valid Accounts, 정상 계정 도용)",
+  "conditionFormat": "any: 하나라도 참, all: 모두 참. 패턴마다 두 갈래(source)로 찾습니다: description(설명 문장), structure(구조 칸 data.group·timestamp). description 갈래는 설명을 문장('.' 기준)으로 나눠, 한 문장 안에서 조건이 모두 맞고 그 문장에 negations 표현이 없을 때만 참입니다. field는 경보 원본 칸 경로, regex는 정규식(u 플래그), equalsAnyIgnoreCase는 대소문자 무시로 목록의 값과 정확히 같음, hourInReferenceOffset는 timestamp를 글자에 적힌 오프셋(+09:00 같은 값, Z는 +00:00)으로 한 순간으로 읽은 뒤 referenceOffset(+09:00) 시각으로 바꾼 시가 범위 안이면 참(실행하는 컴퓨터의 시간대는 쓰지 않음, 오프셋이 없거나 형식이 깨졌으면 거짓). 같은 순간이면 어떻게 적혀도 결과가 같습니다. 경보 번호와 계정 이름은 조건에 쓰지 않습니다.",
+  "privilegeMitre": ["T1068", "T1078", "T1098", "T1548"],
+  "privilegeMitreText": "rule.mitre에 이 번호나 하위 번호(앞부분이 같은 값, 예: T1078.003)가 하나라도 있으면 권한 mitre로 봅니다.",
+  "patterns": [
+    {
+      "name": "admin-group-add",
+      "technique": "T1098",
+      "conditions": {
+        "text": "(가) 설명의 한 문장에 \"관리자 그룹\"과 추가를 뜻하는 표현(\"추가\", \"들어가\", \"들어오\", \"들어옴\")이 함께 있거나, \"다시 관리자로 들어\"가 있다. (나) data.group이 관리자 그룹 이름(administrators, admins, domain admins, wheel, sudo)과 대소문자 무시로 정확히 같다.",
+        "match": { "any": [
+          { "source": "description", "any": [
+            { "all": [
+              { "field": "rule.description", "regex": "관리자 그룹" },
+              { "field": "rule.description", "regex": "추가|들어가|들어오|들어옴|들어왔" }
+            ] },
+            { "field": "rule.description", "regex": "다시 관리자로 들어" }
+          ] },
+          { "source": "structure", "field": "data.group", "equalsAnyIgnoreCase": ["administrators", "admins", "domain admins", "wheel", "sudo"] }
+        ] }
+      },
+      "strength": "strong",
+      "evidence": "MITRE ATT&CK T1098(Account Manipulation): 계정을 관리자 그룹에 넣는 것은 T1098에 해당하고, 그렇게 추가된 계정을 쓰는 것은 T1078(Valid Accounts). 카드의 두 번호에는 없지만 그룹 추가 신호의 근거라 적음(하위 번호는 확인하지 못해 쓰지 않음)."
+    },
+    {
+      "name": "first-seen-admin-command",
+      "technique": "T1068",
+      "conditions": {
+        "text": "(가) 설명의 한 문장에 \"관리자 명령\", \"권한 명령\", \"관리자 권한\" 중 하나와, 처음·갑작스러움을 뜻하는 표현(\"처음 보는\", \"처음 봄\", \"방금 관리자가 된\", \"곧바로\", \"다른 계정의 권한으로\", \"관리자 권한으로 바뀌\") 중 하나가 함께 있다.",
+        "match": { "any": [
+          { "source": "description", "all": [
+            { "field": "rule.description", "regex": "관리자 명령|권한 명령|관리자 권한" },
+            { "field": "rule.description", "regex": "처음 보는|처음 봄|방금 관리자가 된|곧바로|다른 계정의 권한으로|관리자 권한으로 바뀌" }
+          ] }
+        ] }
+      },
+      "strength": "strong",
+      "evidence": "MITRE ATT&CK T1068(Exploitation for Privilege Escalation) + T1078(Valid Accounts): 평소 관리자가 아닌 계정이 처음 보는 곳에서, 또는 권한을 얻자마자 관리자 명령을 쓰는 형태."
+    },
+    {
+      "name": "off-hours-privilege-use",
+      "technique": "T1078",
+      "conditions": {
+        "text": "(가) 설명의 한 문장에 \"시간 밖\", \"업무처럼 보이지 않는 시각\", \"업무 시간 외\", \"새벽\", \"심야\" 중 하나가 있다(\"수업 시간에\", \"수업 중\"처럼 \"밖\"이 없는 표현은 신호가 아님). (나) timestamp를 +09:00 시각으로 바꾼 시가 0~5시다(예: 2026-09-26T17:30:00Z는 +09:00으로 02:30이라 신호).",
+        "match": { "any": [
+          { "source": "description", "field": "rule.description", "regex": "시간 밖|업무처럼 보이지 않는 시각|업무 시간 외|새벽|심야" },
+          { "source": "structure", "field": "timestamp", "referenceOffset": "+09:00", "hourInReferenceOffset": { "gte": 0, "lte": 5 } }
+        ] }
+      },
+      "strength": "strong",
+      "evidence": "MITRE ATT&CK T1078(Valid Accounts): 정상 계정이 평소 쓰지 않는 시각에 권한을 쓰는 형태. 0~5시는 이 저장소 판정기 7단계의 새벽 시간 기준(LATE_NIGHT_HOURS)과 같음. 시각은 +09:00으로 바꿔 봄(시험 경보가 모두 +09:00이고 이 반이 한국 기준이라 정한 값, 근거 문서로 확인되지는 않음)."
+    }
+  ],
+  "negations": {
+    "text": "description 갈래는 신호 표현이 있는 문장에 아래 표현이 있으면 그 문장을 세지 않습니다(예: \"관리자 그룹은 아닙니다\", \"이어서 명령은 없습니다\", \"명령이 실패\", \"창이 뜨고 취소\"). structure 갈래(data.group, 시각)는 부정 표현과 상관없습니다.",
+    "field": "rule.description",
+    "scope": "sentence",
+    "regex": "아닙니다|아님|없습니다|없음|실패|취소|읽기만|조회",
+    "evidence": "설명이 스스로 관리자 그룹이 아니거나, 명령이 없거나 실패·취소됐거나, 읽기·조회만 했다고 밝힌 문장은 권한 상승 신호로 보지 않음."
+  },
+  "baseline": {
+    "available": false,
+    "text": "저장소에는 업무 시간·수업 시간 기준이나 평소 관리자 목록이 없습니다. 그래서 설명의 시간 밖·처음 보는 표현과, 판정기 7단계와 같은 새벽 0~5시를 신호로 씁니다. 경보에서 관리자 계정 목록을 만들지 않습니다.",
+    "evidence": "업무 시간·관리자 목록 근거 문서가 저장소(xdr/, docs/, aleph.config.json, 경보 묶음)에 없음을 확인함."
+  },
+  "levelBands": {
+    "field": "rule.level",
+    "bands": [
+      { "band": "normal", "max": 4 },
+      { "band": "ambiguous", "min": 5, "max": 9 },
+      { "band": "attack", "min": 10 }
+    ],
+    "evidence": "Wazuh 규칙 수준 분류(낮은 수준은 성공·저우선 알림, 높은 수준은 반복 오류·중요 이벤트). 정상 판단은 수준으로 함."
+  }
+}
