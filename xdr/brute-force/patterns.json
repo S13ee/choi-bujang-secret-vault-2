@@ -55,8 +55,8 @@
   "levelBands": {
     "field": "rule.level",
     "bands": [
-      { "band": "normal", "max": 3 },
-      { "band": "ambiguous", "min": 5, "max": 8 },
+      { "band": "normal", "max": 4 },
+      { "band": "ambiguous", "min": 5, "max": 9 },
       { "band": "attack", "min": 10 }
     ],
     "evidence": "Wazuh 규칙 수준 분류(낮은 수준은 성공·저우선 알림, 높은 수준은 반복 오류·중요 이벤트)"
