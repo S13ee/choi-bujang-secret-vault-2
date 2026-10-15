@@ -7,8 +7,6 @@ import { OPS_CATALOG } from './ops-catalog.mjs';
 
 export async function runAttackChecks(config) {
   if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
-  // 12단계 진단(임시): 받은 인자·전역·환경변수의 이름과 종류만 모아 멈춥니다. 값은 넣지 않습니다. node --test 안에서는 건너뜁니다.
-  if (config.step === 12 && !process.env.NODE_TEST_CONTEXT) throw new Error(diagTwelveLine([...arguments]));
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -359,37 +357,4 @@ async function runStepTwelveChecks(app, config) {
       observed: url ? await tracedRequest(row.attackId, url, { method: run.method, headers }) : NOT_RUN });
   }
   return out;
-}
-
-// 12단계 진단(임시): 이름·개수·종류·true/false만 한 줄 280자 이하로 만듭니다. 값·URL·함수 본문은 넣지 않습니다.
-function diagTwelveLine(args) {
-  const safe = name => String(name).replace(/[^\w$.-]/g, '?').slice(0, 40);
-  const lists = [];
-  const fixed = [`args=${args.length}`];
-  args.forEach((arg, index) => {
-    if (typeof arg === 'function') fixed.push(`a${index}=function(name=${safe(arg.name) || '-'},len=${arg.length})`);
-    else if (arg && typeof arg === 'object') {
-      fixed.push(`a${index}=object`);
-      lists.push({ label: `a${index}keys`, items: Object.keys(arg).slice(0, 20).map(safe) });
-    } else fixed.push(`a${index}=${typeof arg}`);
-  });
-  const globalPattern = /aleph|judge|record|attack|trace|sandbox/i;
-  lists.push({ label: 'globals', items: Object.getOwnPropertyNames(globalThis).filter(name => globalPattern.test(name)).map(safe) });
-  const fetchFn = globalThis.fetch;
-  if (typeof fetchFn === 'function') {
-    const native = Function.prototype.toString.call(fetchFn).includes('[native code]');
-    fixed.push(`fetch(name=${safe(fetchFn.name) || '-'},len=${fetchFn.length},native=${native})`);
-  } else fixed.push(`fetch=${typeof fetchFn}`);
-  lists.push({ label: 'env', items: Object.keys(process.env).filter(name => /ALEPH|JUDGE|SANDBOX/i.test(name)).map(safe) });
-  const build = () => `DIAG12 ${fixed.join(' ')} ${lists.map(list => `${list.label}=[${list.items.join(',')}${list.cut ? ',…' : ''}]`).join(' ')}`;
-  let line = build();
-  // 넘치면 뒤쪽 목록부터 끝 항목을 줄이고 …를 붙입니다.
-  for (let i = lists.length - 1; line.length > 280 && i >= 0; i -= 1) {
-    while (line.length > 280 && lists[i].items.length) {
-      lists[i].items.pop();
-      lists[i].cut = true;
-      line = build();
-    }
-  }
-  return line.length > 280 ? `${line.slice(0, 279)}…` : line;
 }
