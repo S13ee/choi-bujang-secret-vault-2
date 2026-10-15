@@ -1,0 +1,85 @@
+{
+  "moduleKey": "known-cve",
+  "note": "판정기 요청 계약에 머리글·쿼리 원문·IP 칸이 없어 src/decider.mjs에는 연결하지 않음. 판정기 앞단의 추가 확인 단계로 쓰는 요청 출발지 차단 목록. README 주의에 따라 원격 조회 구문 원문은 이 파일과 로그에 남기지 않음",
+  "schema": "aleph.xdr.deny-rules.v1",
+  "rules": [
+    {
+      "target": "srcip",
+      "srcip": "203.0.113.10",
+      "action": "block-request-source",
+      "reason": "log4shell-lookup-request · level 13(attack) | log4shell-lookup-request · level 12(attack)",
+      "evidenceAlertIds": [
+        "kc-01",
+        "kc-02"
+      ],
+      "createdAt": "2026-09-27T00:14:02.000Z",
+      "expiresAt": "2026-09-27T01:14:18.000Z"
+    },
+    {
+      "target": "srcip",
+      "srcip": "198.51.100.16",
+      "action": "block-request-source",
+      "reason": "log4shell-lookup-request · level 12(attack)",
+      "evidenceAlertIds": [
+        "kc-03"
+      ],
+      "createdAt": "2026-09-27T00:17:06.000Z",
+      "expiresAt": "2026-09-27T01:17:06.000Z"
+    },
+    {
+      "target": "srcip",
+      "srcip": "192.0.2.16",
+      "action": "block-request-source",
+      "reason": "log4shell-lookup-request · level 13(attack)",
+      "evidenceAlertIds": [
+        "kc-04"
+      ],
+      "createdAt": "2026-09-27T01:04:22.000Z",
+      "expiresAt": "2026-09-27T02:04:22.000Z"
+    },
+    {
+      "target": "srcip",
+      "srcip": "203.0.113.24",
+      "action": "block-request-source",
+      "reason": "log4shell-lookup-request+vuln-scan-trace · level 12(attack)",
+      "evidenceAlertIds": [
+        "kc-05"
+      ],
+      "createdAt": "2026-09-27T01:21:09.000Z",
+      "expiresAt": "2026-09-27T02:21:09.000Z"
+    },
+    {
+      "target": "srcip",
+      "srcip": "198.51.100.24",
+      "action": "block-request-source",
+      "reason": "log4shell-lookup-request · level 11(attack)",
+      "evidenceAlertIds": [
+        "kc-06"
+      ],
+      "createdAt": "2026-09-27T02:08:41.000Z",
+      "expiresAt": "2026-09-27T03:08:41.000Z"
+    },
+    {
+      "target": "srcip",
+      "srcip": "192.0.2.24",
+      "action": "block-request-source",
+      "reason": "log4shell-lookup-request · level 12(attack)",
+      "evidenceAlertIds": [
+        "kc-07"
+      ],
+      "createdAt": "2026-09-27T04:06:15.000Z",
+      "expiresAt": "2026-09-27T05:06:15.000Z"
+    },
+    {
+      "target": "srcip",
+      "srcip": "203.0.113.31",
+      "action": "block-request-source",
+      "reason": "log4shell-lookup-request · level 10(attack)",
+      "evidenceAlertIds": [
+        "kc-08"
+      ],
+      "createdAt": "2026-09-27T05:19:03.000Z",
+      "expiresAt": "2026-09-27T06:19:03.000Z"
+    }
+  ]
+}
