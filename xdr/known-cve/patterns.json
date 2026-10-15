@@ -1,0 +1,56 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "known-cve",
+  "source": "CVE-2021-44228 형태 요청, MITRE ATT&CK T1190(Exploit Public-Facing Application)",
+  "conditionFormat": "any: 하나라도 참. 패턴마다 설명 문장(description) 갈래로만 찾습니다. 설명을 문장('.' 기준)으로 나눠, 한 문장 안에서 조건이 맞고 그 문장에 negations 표현이 없을 때만 참입니다. field는 경보 원본 칸 경로, regex는 정규식(u 플래그). README 주의에 따라 공격 문자열의 모양은 조건에 넣지 않고, 설명이 조회 구문이 실제로 들어왔다고 말하는지로만 판단합니다. 경보 번호와 계정 이름은 조건에 쓰지 않습니다.",
+  "knownCveMitre": ["T1190"],
+  "knownCveMitreText": "rule.mitre에 이 번호나 하위 번호(앞부분이 같은 값)가 있으면 해당 mitre로 봅니다.",
+  "patterns": [
+    {
+      "name": "log4shell-lookup-request",
+      "technique": "T1190",
+      "conditions": {
+        "text": "설명의 한 문장에 (원격) 조회 구문·jndi 형태가 들어왔음을 뜻하는 표현(\"원격 조회 구문\", \"조회 구문이 담\", \"jndi 형태\", \"조회 구문으로\", \"구문이 들어\", \"CVE-2021-44228 형태\", \"CVE-2021-44228 표기\", \"조회 구문이\") 중 하나가 있다. CVE 이름만 적힌 문장(\"CVE-2021-44228 이라는 글자만\")은 \"형태\"·\"표기\"가 아니라 맞지 않는다.",
+        "match": { "any": [
+          { "source": "description", "field": "rule.description", "regex": "원격 조회 구문|조회 구문이 담|jndi 형태|조회 구문으로|구문이 들어|CVE-2021-44228 형태|CVE-2021-44228 표기|조회 구문이" }
+        ] }
+      },
+      "strength": "strong",
+      "evidence": "CVE-2021-44228(Log4Shell) + MITRE ATT&CK T1190(Exploit Public-Facing Application): 요청 머리글·인자에 원격 조회 구문을 넣어 로그 라이브러리가 바깥 주소를 조회하게 하는 형태."
+    },
+    {
+      "name": "vuln-scan-trace",
+      "technique": "T1190",
+      "conditions": {
+        "text": "설명의 한 문장에 \"점검 흔적\", \"점검 도구\"처럼 알려진 취약점 점검 도구의 흔적을 뜻하는 표현이 있다.",
+        "match": { "any": [
+          { "source": "description", "field": "rule.description", "regex": "점검 흔적|점검 도구" }
+        ] }
+      },
+      "strength": "strong",
+      "evidence": "MITRE ATT&CK T1190(Exploit Public-Facing Application): 공개된 취약점을 찾는 점검 도구의 흔적은 악용 전 단계로 봄."
+    }
+  ],
+  "negations": {
+    "text": "신호 표현이 있는 문장에 아래 표현이 있으면 그 문장을 세지 않습니다(예: 이름만 있는 검색, 낱말만 있는 노트, 중괄호가 한 번 있는 머리글, 잘린 조각). 부정 표현은 그 문장에서 모든 패턴의 신호 표현을 지운 나머지 글자에서 찾습니다.",
+    "field": "rule.description",
+    "scope": "sentence",
+    "maskSignalPhrases": true,
+    "regex": "아닙니다|아님|없습니다|없음|낱말만|이름만|완전한 구문은 아|중괄호가 한 번|조각",
+    "evidence": "설명이 스스로 조회 구문이 없거나, 이름·낱말만 있거나, 완전한 구문이 아니라고 밝힌 문장은 악용 신호로 보지 않음."
+  },
+  "baseline": {
+    "available": false,
+    "text": "저장소에는 공개 취약점(CVE) 목록이나 공격 기법 목록 파일이 없습니다. 그래서 경보 설명 문장으로 판단합니다. xdr/README.md의 주의(원격 조회 구문은 문서용 표기이며 다른 시스템에 넣거나 변형하지 않음)에 따라 공격 문자열의 모양은 패턴에 담지 않습니다.",
+    "evidence": "CVE·공격 기법 목록 파일이 저장소(xdr/, docs/, 경보 묶음 밖)에 없음을 확인함."
+  },
+  "levelBands": {
+    "field": "rule.level",
+    "bands": [
+      { "band": "normal", "max": 4 },
+      { "band": "ambiguous", "min": 5, "max": 9 },
+      { "band": "attack", "min": 10 }
+    ],
+    "evidence": "Wazuh 규칙 수준 분류(낮은 수준은 성공·저우선 알림, 높은 수준은 반복 오류·중요 이벤트). 정상 판단은 수준으로 함."
+  }
+}
