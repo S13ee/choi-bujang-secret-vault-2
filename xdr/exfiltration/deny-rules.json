@@ -1,0 +1,97 @@
+{
+  "moduleKey": "exfiltration",
+  "note": "판정기 요청 계약에 목적지 칸이 없어 src/decider.mjs에는 연결하지 않음. 판정기 앞단의 추가 확인 단계로 쓰는 목적지 차단 목록. 막지 않는 경보에도 나오는 목적지와 사설·특수 주소는 정상 사용자를 막지 않도록 제외함",
+  "schema": "aleph.xdr.deny-rules.v1",
+  "rules": [
+    {
+      "target": "dstip",
+      "dstip": "203.0.113.50",
+      "action": "block-destination",
+      "reason": "large-transfer-to-new-destination · level 12(attack) | large-transfer-to-new-destination · level 11(attack)",
+      "evidenceAlertIds": [
+        "ex-01",
+        "ex-03"
+      ],
+      "createdAt": "2026-09-27T00:16:03.000Z",
+      "expiresAt": "2026-09-27T02:05:14.000Z"
+    },
+    {
+      "target": "dstip",
+      "dstip": "198.51.100.40",
+      "action": "block-destination",
+      "reason": "large-transfer-to-new-destination+off-hours-archive-exfil · level 12(attack) | large-transfer-to-new-destination · level 12(attack)",
+      "evidenceAlertIds": [
+        "ex-02",
+        "ex-04"
+      ],
+      "createdAt": "2026-09-27T00:16:48.000Z",
+      "expiresAt": "2026-09-27T02:20:07.000Z"
+    },
+    {
+      "target": "dstip",
+      "dstip": "203.0.113.55",
+      "action": "block-destination",
+      "reason": "large-transfer-to-new-destination · level 10(attack)",
+      "evidenceAlertIds": [
+        "ex-05"
+      ],
+      "createdAt": "2026-09-27T02:04:26.000Z",
+      "expiresAt": "2026-09-27T03:04:26.000Z"
+    },
+    {
+      "target": "dstip",
+      "dstip": "192.0.2.90",
+      "action": "block-destination",
+      "reason": "large-transfer-to-new-destination+off-hours-archive-exfil · level 12(attack)",
+      "evidenceAlertIds": [
+        "ex-06"
+      ],
+      "createdAt": "2026-09-27T03:02:19.000Z",
+      "expiresAt": "2026-09-27T04:02:19.000Z"
+    },
+    {
+      "target": "dstip",
+      "dstip": "198.51.100.45",
+      "action": "block-destination",
+      "reason": "large-transfer-to-new-destination+off-hours-archive-exfil · level 11(attack)",
+      "evidenceAlertIds": [
+        "ex-07"
+      ],
+      "createdAt": "2026-09-27T04:12:08.000Z",
+      "expiresAt": "2026-09-27T05:12:08.000Z"
+    },
+    {
+      "target": "dstip",
+      "dstip": "203.0.113.60",
+      "action": "block-destination",
+      "reason": "large-transfer-to-new-destination · level 12(attack)",
+      "evidenceAlertIds": [
+        "ex-08"
+      ],
+      "createdAt": "2026-09-27T05:03:41.000Z",
+      "expiresAt": "2026-09-27T06:03:41.000Z"
+    },
+    {
+      "target": "dstip",
+      "dstip": "203.0.113.61",
+      "action": "block-destination",
+      "reason": "large-transfer-to-new-destination · level 10(attack)",
+      "evidenceAlertIds": [
+        "ex-09"
+      ],
+      "createdAt": "2026-09-27T06:08:12.000Z",
+      "expiresAt": "2026-09-27T07:08:12.000Z"
+    },
+    {
+      "target": "dstip",
+      "dstip": "198.51.100.46",
+      "action": "block-destination",
+      "reason": "large-transfer-to-new-destination+off-hours-archive-exfil · level 12(attack)",
+      "evidenceAlertIds": [
+        "ex-10"
+      ],
+      "createdAt": "2026-09-27T07:01:05.000Z",
+      "expiresAt": "2026-09-27T08:01:05.000Z"
+    }
+  ]
+}
