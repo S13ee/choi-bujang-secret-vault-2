@@ -12,7 +12,7 @@
         "match": { "any": [
           { "source": "description", "field": "rule.description", "regex": "SQL 구문|데이터베이스 조회" },
           { "source": "urlNotation", "field": "data.url", "regex": "(?:^|[/?&=])doc-sql" },
-          { "source": "decodedUrl", "field": "data.url", "decode": true, "regex": "union(?:\\s|\\+|/\\*.*?\\*/)+(?:all(?:\\s|\\+)+)?select|'\\s*or\\s*'?1'?\\s*=\\s*'?1|;\\s*--|\\bsleep\\s*\\(" }
+          { "source": "decodedUrl", "field": "data.url", "decode": true, "regex": "union(?:\\s|\\+|/\\*[^*]{0,64}\\*/){1,16}(?:all(?:\\s|\\+){1,16})?select|'\\s*or\\s*'?1'?\\s*=\\s*'?1|;\\s*--|\\bsleep\\s*\\(" }
         ] }
       },
       "strength": "strong",
@@ -40,7 +40,7 @@
         "match": { "any": [
           { "source": "description", "field": "rule.description", "regex": "경로를[^.]*거슬러|경로 이탈" },
           { "source": "urlNotation", "field": "data.url", "regex": "(?:^|[/?&=])doc-up-repeat" },
-          { "source": "decodedUrl", "field": "data.url", "decode": true, "regex": "(?:\\.\\.[/\\\\].*){2,}|\\.\\.%2f|%2e%2e" }
+          { "source": "decodedUrl", "field": "data.url", "decode": true, "regex": "\\.\\.[/\\\\].*\\.\\.[/\\\\]|\\.\\.%2f|%2e%2e" }
         ] }
       },
       "strength": "strong",
