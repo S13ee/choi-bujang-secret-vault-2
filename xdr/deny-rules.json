@@ -1,0 +1,98 @@
+{
+  "note": "판정기 요청 계약에 IP 칸이 없어 src/decider.mjs에는 연결하지 않음. 판정기 앞단에서 이 목록을 확인하는 용도",
+  "schema": "aleph.xdr.deny-rules.v1",
+  "moduleKey": "brute-force",
+  "rules": [
+    {
+      "target": "srcip",
+      "value": "203.0.113.10",
+      "reason": "rapid-failures-same-source · level 12(attack) | password-spraying · level 12(attack)",
+      "evidenceAlertIds": [
+        "bf-01",
+        "bf-02"
+      ],
+      "createdAt": "2026-09-27T00:12:01.000Z",
+      "expiresAt": "2026-09-27T01:12:40.000Z"
+    },
+    {
+      "target": "srcip",
+      "value": "198.51.100.20",
+      "reason": "rapid-failures-same-source · level 10(attack)",
+      "evidenceAlertIds": [
+        "bf-03"
+      ],
+      "createdAt": "2026-09-27T00:14:02.000Z",
+      "expiresAt": "2026-09-27T01:14:02.000Z"
+    },
+    {
+      "target": "srcip",
+      "value": "192.0.2.30",
+      "reason": "rapid-failures-same-source · level 12(attack)",
+      "evidenceAlertIds": [
+        "bf-04"
+      ],
+      "createdAt": "2026-09-27T00:20:11.000Z",
+      "expiresAt": "2026-09-27T01:20:11.000Z"
+    },
+    {
+      "target": "srcip",
+      "value": "203.0.113.21",
+      "reason": "rapid-failures-same-source · level 11(attack)",
+      "evidenceAlertIds": [
+        "bf-05"
+      ],
+      "createdAt": "2026-09-27T00:21:00.000Z",
+      "expiresAt": "2026-09-27T01:21:00.000Z"
+    },
+    {
+      "target": "srcip",
+      "value": "198.51.100.44",
+      "reason": "rapid-failures-same-source · level 12(attack)",
+      "evidenceAlertIds": [
+        "bf-06"
+      ],
+      "createdAt": "2026-09-27T02:02:15.000Z",
+      "expiresAt": "2026-09-27T03:02:15.000Z"
+    },
+    {
+      "target": "srcip",
+      "value": "203.0.113.15",
+      "reason": "rapid-failures-same-source · level 10(attack)",
+      "evidenceAlertIds": [
+        "bf-07"
+      ],
+      "createdAt": "2026-09-27T02:05:40.000Z",
+      "expiresAt": "2026-09-27T03:05:40.000Z"
+    },
+    {
+      "target": "srcip",
+      "value": "192.0.2.18",
+      "reason": "rapid-failures-same-source · level 12(attack)",
+      "evidenceAlertIds": [
+        "bf-08"
+      ],
+      "createdAt": "2026-09-27T04:10:02.000Z",
+      "expiresAt": "2026-09-27T05:10:02.000Z"
+    },
+    {
+      "target": "srcip",
+      "value": "198.51.100.8",
+      "reason": "password-spraying · level 11(attack)",
+      "evidenceAlertIds": [
+        "bf-09"
+      ],
+      "createdAt": "2026-09-27T05:22:18.000Z",
+      "expiresAt": "2026-09-27T06:22:18.000Z"
+    },
+    {
+      "target": "srcip",
+      "value": "203.0.113.40",
+      "reason": "rapid-failures-same-source · level 12(attack)",
+      "evidenceAlertIds": [
+        "bf-10"
+      ],
+      "createdAt": "2026-09-27T06:40:01.000Z",
+      "expiresAt": "2026-09-27T07:40:01.000Z"
+    }
+  ]
+}
