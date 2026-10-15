@@ -1,6 +1,7 @@
 // 12단계 제작 2: 1~11단계 정상·금지 요청 기록표를 만듭니다.
-//   npm run ops:record            제출 묶음(artifacts/submission.json)의 attackId·observed를 그대로 표로 옮깁니다(새 요청 없음).
-//   npm run ops:record -- --live  같은 step 12 점검을 지금 새로 실행해 표를 만듭니다(새 요청 ID가 생기므로 묶음과 값이 다름).
+//   npm run ops:record                   같은 시험 목록으로 공개 HTTPS 주소에 실제 GET·HEAD 요청을 보내, 받은 응답만 표로 적습니다(실측).
+//   npm run ops:record -- --from-bundle  제출 묶음(artifacts/submission.json)의 attackId·observed를 그대로 옮깁니다(새 요청 없음).
+//                                        12단계 제출 묶음은 요청을 보내지 않으므로 이때는 모두 미실행입니다.
 // 결과: artifacts/ops-records.json, artifacts/ops-records.md (Git 제외). 실제로 보낸 요청의 결과만 적고 보내지 않은 것은 미실행입니다.
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -10,16 +11,17 @@ import { OPS_CATALOG } from '../src/ops-catalog.mjs';
 import { buildRecordTable, recordTableMarkdown } from '../src/ops-records.mjs';
 
 const root = resolve(import.meta.dirname, '..');
-const live = process.argv.includes('--live');
+// --live는 이전 이름이라 받아 두지만 기본 동작과 같습니다.
+const live = !process.argv.includes('--from-bundle');
 
 try {
   const config = JSON.parse(readFileSync(join(root, 'aleph.config.json'), 'utf8'));
   let attempts;
   let commit;
   if (live) {
-    const { runAttackChecks } = await import(pathToFileURL(join(root, 'src', 'attack-check.mjs')).href);
-    if (config.step !== 12) throw new Error('--live는 aleph.config.json의 step이 12일 때만 씁니다.');
-    attempts = await runAttackChecks(config);
+    const { runLiveChecks } = await import(pathToFileURL(join(root, 'src', 'attack-check.mjs')).href);
+    if (config.step !== 12) throw new Error('실측 기록표는 aleph.config.json의 step이 12일 때만 씁니다.');
+    attempts = await runLiveChecks(config);
     commit = execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8', windowsHide: true }).trim();
   } else {
     let submission;

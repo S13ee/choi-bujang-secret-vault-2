@@ -1,14 +1,16 @@
 // 12단계 제작 2: 기록표(npm run ops:record)가 실제 점검 결과만 옮기고, 미실행을 채우지 않는지 확인합니다. 로컬 시험이며 심판 판정이 아닙니다.
+// 구조 정리 뒤: 기본은 실측(runLiveChecks), --from-bundle은 요청 없는 제출 묶음 결과(모두 not_run)를 옮깁니다.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { runAttackChecks } from '../src/attack-check.mjs';
+import { runAttackChecks, runLiveChecks } from '../src/attack-check.mjs';
 import { OPS_CATALOG } from '../src/ops-catalog.mjs';
 import { buildRecordTable, parseObserved, recordTableMarkdown } from '../src/ops-records.mjs';
 
 const config = JSON.parse(readFileSync(new URL('../aleph.config.json', import.meta.url), 'utf8'));
 
-async function bundleLikeAttempts() {
+// 가짜 fetch로 run(config)을 돌립니다. 기본은 ops:record 기본 동작(실측)이 쓰는 runLiveChecks입니다.
+async function attemptsWithFakeFetch(run = runLiveChecks) {
   const originalFetch = globalThis.fetch;
   const calls = [];
   globalThis.fetch = async (url, init = {}) => {
@@ -17,15 +19,15 @@ async function bundleLikeAttempts() {
       json: async () => ({ error: 'LOGIN_REQUIRED' }) };
   };
   try {
-    return { attempts: await runAttackChecks(config), calls };
+    return { attempts: await run(config), calls };
   } finally {
     globalThis.fetch = originalFetch;
   }
 }
 
-test('기록표는 bundle의 attackId·observed를 그대로 옮기고, 보낸 요청만 실행으로 적는다', async () => {
-  const { attempts, calls } = await bundleLikeAttempts();
-  const table = buildRecordTable({ catalog: OPS_CATALOG, attempts, source: 'bundle', commit: 'abc1234',
+test('기록표(기본, 실측)는 실제로 보낸 요청의 attackId·observed를 그대로 옮기고, 보낸 요청만 실행으로 적는다', async () => {
+  const { attempts, calls } = await attemptsWithFakeFetch();
+  const table = buildRecordTable({ catalog: OPS_CATALOG, attempts, source: 'live', commit: 'abc1234',
     publicAppUrl: config.publicAppUrl, generatedAt: '2026-10-14T00:00:00.000Z' });
   assert.equal(table.rows.length, OPS_CATALOG.length, '행 수는 시험 목록 길이 그대로');
   assert.deepEqual(table.rows.map(row => row.attackId), OPS_CATALOG.map(row => row.attackId));
@@ -56,9 +58,13 @@ test('기록표는 bundle의 attackId·observed를 그대로 옮기고, 보낸 �
   assert.ok(markdown.includes('미실행은 성공으로 세지 않음'));
 });
 
-test('결과가 없거나 not_run인 항목은 결과를 채우지 않는다', async () => {
-  const attempts = OPS_CATALOG.filter(row => row.bundle).map(row => ({ attackId: row.attackId, observed: 'not_run' }));
+test('--from-bundle: 제출 묶음은 요청을 보내지 않으므로 옮긴 표는 모두 미실행이고 결과를 채우지 않는다', async () => {
+  const { attempts: bundled, calls } = await attemptsWithFakeFetch(runAttackChecks);
+  assert.equal(calls.length, 0, '제출 묶음 점검은 요청을 보내지 않음');
+  const attempts = bundled.map(({ attackId, observed }) => ({ attackId, observed }));
+  assert.ok(attempts.every(item => item.observed === 'not_run'));
   const table = buildRecordTable({ catalog: OPS_CATALOG, attempts, source: 'bundle', commit: 'x', publicAppUrl: config.publicAppUrl, generatedAt: 'x' });
+  assert.deepEqual(table.counts, { rows: 27, executed: 0, notRun: 27, statusMatched: 0, statusMismatched: 0 });
   assert.equal(table.counts.executed, 0);
   assert.equal(table.counts.statusMatched, 0);
   for (const row of table.rows) {

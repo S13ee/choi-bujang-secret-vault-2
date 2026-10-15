@@ -5,8 +5,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { OPS_CATALOG } from './ops-catalog.mjs';
 
-export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+function checkedAppUrl(config) {
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -18,6 +17,19 @@ export async function runAttackChecks(config) {
     throw new Error('aleph.config.json의 실제 배포 주소를 먼저 넣어 주세요.');
   }
   if (typeof config.sampleMarker !== 'string' || !config.sampleMarker) throw new Error('가상 메모의 확인 표시를 넣어 주세요.');
+  return app;
+}
+
+// 12단계 실측: 같은 시험 목록으로 공개 HTTPS 주소에 실제 GET·HEAD 요청을 보내 받은 응답만 적습니다.
+// npm run ops:record(기본)가 씁니다. 제출 묶음(npm run bundle)은 이 함수를 부르지 않습니다.
+export async function runLiveChecks(config) {
+  if (config.step !== 12) throw new Error('실측 점검은 aleph.config.json의 step이 12일 때만 씁니다.');
+  return runStepTwelveChecks(checkedAppUrl(config), config);
+}
+
+export async function runAttackChecks(config) {
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  const app = checkedAppUrl(config);
   if (config.step === 2) return runStepTwoChecks(app, config);
   if (config.step === 3) return runStepThreeChecks(app, config);
   if (config.step === 4) return runStepFourChecks(app, config);
@@ -28,8 +40,9 @@ export async function runAttackChecks(config) {
   if (config.step === 9) return runStepNineChecks(app, config);
   if (config.step === 10) return runStepTenChecks(app, config);
   if (config.step === 11) return runStepElevenChecks(app, config);
-  // 12단계: 제출 묶음은 읽기 요청(GET·HEAD)만 보낼 수 있어 11단계 사슬을 다시 쓰지 않고 전용 점검을 씁니다.
-  if (config.step === 12) return runStepTwelveChecks(app, config);
+  // 12단계: 심판은 제출 묶음을 격리 환경에서 돌리고 거기서 보낸 요청을 attackId와 잇지 못합니다.
+  // 그래서 제출 묶음은 요청을 하나도 보내지 않고 18개 모두 not_run으로 둡니다. 실측은 runLiveChecks(ops:record)와 작전실이 맡습니다.
+  if (config.step === 12) return stepTwelveBundleNotRun();
   const response = await fetch(new URL('/data.json', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
   });
@@ -357,4 +370,11 @@ async function runStepTwelveChecks(app, config) {
       observed: url ? await tracedRequest(row.attackId, url, { method: run.method, headers }) : NOT_RUN });
   }
   return out;
+}
+
+// 12단계 제출 묶음: 요청을 보내지 않으므로 observed는 모두 정확히 "not_run"이고, 이유는 expected 끝에 적습니다.
+const BUNDLE_NOT_RUN_NOTE = '(제출 묶음은 격리 환경에서 요청을 보내지 않음. 실측 결과는 탈환 작전실과 서버 [res12] 기록에 남김)';
+function stepTwelveBundleNotRun() {
+  return OPS_CATALOG.filter(row => row.bundle)
+    .map(row => ({ attackId: row.attackId, expected: `${row.expected} ${BUNDLE_NOT_RUN_NOTE}`, observed: NOT_RUN }));
 }

@@ -311,14 +311,21 @@
 ### 만든 것
 
 - **시험 목록 한 곳** (`src/ops-catalog.mjs`, 브라우저 사본 `public/ops-catalog.js`): 1~11단계 정상·금지 요청 27개. 저장소에 근거가 있는 항목만 넣었고(README 재확인 표, 각 단계 자기 점검, 8·11단계 기록) 개수를 늘려 채우지 않았습니다. 앞의 18개가 제출 묶음 step 12 점검이고, 나머지 9개는 작전실 전용(로그인 + 승인된 기기 서명 GET 5개, 홈 화면 1개, 쓰기 3개)입니다. 각 항목에 단계·정상/금지·기대 결과·기대 상태 코드·보낼 요청(GET·HEAD만) 또는 보내지 않는 이유가 있습니다. 브라우저 사본과 서버 목록이 같은지는 `test/ops-room.test.mjs`가 확인합니다.
-- **기록표 명령** `npm run ops:record` (`scripts/ops-record.mjs`, `src/ops-records.mjs`): 기본은 `artifacts/submission.json`(`npm run bundle` 결과)의 attackId·observed를 그대로 표로 옮기며 새 요청을 보내지 않습니다(`-- --live`는 같은 점검을 새로 실행). 결과는 `artifacts/ops-records.json`·`.md`(Git 제외)이고 칸은 attackId·단계·정상/금지·기대 결과·실제 API 결과(상태·오류 코드)·요청 ID·확인 시각·실행 여부입니다. 실제로 보낸 요청의 결과만 적고, 보내지 않았거나 `not_run`인 항목은 「미실행」으로 결과 칸을 비웁니다. 쓰기 전에 비밀값 패턴을 검사합니다.
+- **기록표 명령** `npm run ops:record` (`scripts/ops-record.mjs`, `src/ops-records.mjs`): 기본은 실측입니다. 같은 시험 목록으로 공개 HTTPS 주소에 실제 GET·HEAD 요청을 보내(`runLiveChecks`) 받은 응답만 적습니다. `-- --from-bundle`은 `artifacts/submission.json`(`npm run bundle` 결과)의 attackId·observed를 그대로 옮기며 새 요청을 보내지 않습니다. 12단계 제출 묶음은 요청을 보내지 않으므로 이때는 모두 미실행입니다(`-- --live`는 이전 이름이라 받아 두지만 기본과 같음). 결과는 `artifacts/ops-records.json`·`.md`(Git 제외)이고 칸은 attackId·단계·정상/금지·기대 결과·실제 API 결과(상태·오류 코드)·요청 ID·확인 시각·실행 여부입니다. 실제로 보낸 요청의 결과만 적고, 보내지 않았거나 `not_run`인 항목은 「미실행」으로 결과 칸을 비웁니다. 쓰기 전에 비밀값 패턴을 검사합니다.
 - **탈환 작전실 화면** (`public/ops-room.js`, `public/index.html`, `public/auth.js`): 승인된 기기로 자료실이 열린 뒤에만 보입니다. 요약은 빌드가 저장소 파일에서 만든 `/ops-summary.json`(`scripts/ops-summary.mjs`, Git 제외)을 그대로 보여 줍니다: 판정기 규칙 수(`RULE_IDS` 16개), 탐지 규칙(`burst_read`, 120건 초과), 복구 버전(`safe-policy-step9-4e3e743`, 되돌린 기록 줄 수, 복구 경로). 「작전실 점검 실행」을 누르면 같은 시험 목록으로 그 자리에서 GET·HEAD 요청을 보내고(로그인이 필요한 항목은 같은 기기 키로 서명) 받은 응답만 표에 그립니다. 회수 상태는 실제 `/api/devices/status` 응답에서만 읽고, 엔진의 회수 집행은 「미확인」으로 둡니다. 응답 본문은 error 값·내 메모 id·기기 상태만 읽고 메모 본문은 표시하지 않습니다. 자료실이 닫히면 표를 비웁니다.
 - **작전실 수치**: 「행 · 실행 · 미실행 · 기대 상태와 같음 · 다름」은 모두 **행을 센 값**입니다. 비율·점수를 계산하지 않고, **미실행을 성공으로 세지 않습니다.**
-- **서버의 요청 ID** (`src/request-log.mjs`): 모든 api 응답에 `X-Request-Id` 헤더를 넣습니다(요청에 UUID 형식의 `x-request-id`가 있으면 그 값, 아니면 새 UUID). 응답마다 Vercel 로그에 `[res12]` 한 줄(메서드·쿼리 뺀 경로·상태·error·requestId·attackId·토큰 iss로만 나눈 기록용 로그인 분류·심판 신원 a/b·기기 서명 헤더 유무)을 남깁니다. 이 분류는 권한 판단에 쓰지 않으며 토큰·sub·서명·헤더 값·본문·쿼리 값·쿠키는 남기지 않습니다. 작전실과 bundle의 각 요청은 같은 requestId가 `[res12]`에 남도록 설계했습니다.
+- **서버의 요청 ID** (`src/request-log.mjs`): 모든 api 응답에 `X-Request-Id` 헤더를 넣습니다(요청에 UUID 형식의 `x-request-id`가 있으면 그 값, 아니면 새 UUID). 응답마다 Vercel 로그에 `[res12]` 한 줄(메서드·쿼리 뺀 경로·상태·error·requestId·attackId·토큰 iss로만 나눈 기록용 로그인 분류·심판 신원 a/b·기기 서명 헤더 유무)을 남깁니다. 이 분류는 권한 판단에 쓰지 않으며 토큰·sub·서명·헤더 값·본문·쿼리 값·쿠키는 남기지 않습니다. 작전실과 `npm run ops:record`의 각 요청은 같은 requestId가 `[res12]`에 남도록 설계했습니다.
+
+### 12단계 구조: 제출 묶음은 요청 없이 not_run, 실측은 작전실
+
+- **제출 묶음** (`npm run bundle`, `runAttackChecks`): 심판 격리 환경에서 도는 자기 점검입니다. 그 환경에서 보낸 요청을 심판이 attackId와 잇지 못해(아래 「막혔던 점」 3) 이제 **요청을 하나도 보내지 않습니다.** 18개 모두 `observed: "not_run"`이고, expected 끝에 「(제출 묶음은 격리 환경에서 요청을 보내지 않음. 실측 결과는 탈환 작전실과 서버 [res12] 기록에 남김)」을 붙였습니다. attackId·순서·개수는 그대로입니다. fetch를 한 번도 부르지 않는지는 `npm run test:bundle`이 확인합니다(로컬 시험, 심판 판정 아님).
+- **실측**: 작전실 화면, `npm run ops:record`(기본, `runLiveChecks`), 서버 `[res12]` 기록에 요청 ID와 함께 남깁니다. 기존 step 12 요청 코드(`runStepTwelveChecks`, `tracedRequest`)는 지우지 않고 `runLiveChecks`가 그대로 씁니다. 격리 환경 규칙(GET·HEAD만, 허용 모듈, sha256 hex)도 그대로 지킵니다.
+- **배포에서 직접 실행한 작전실 결과**(학생 확인, 커밋 `a845c6b`): 행 27, 실행 14, 미실행 13, 기대와 다름 0.
+- 이 구조로 「실행 기록 대조」가 풀리는지는 아직 심판 판정을 받지 않아 **미확인**입니다.
 
 ### 제출 묶음 점검을 격리 환경 규칙에 맞춘 과정
 
-심판은 격리 환경에서 `npm run bundle`을 실행합니다. 그 환경 규칙에 맞추어 step 12 점검(`runStepTwelveChecks`)을 다음처럼 바꿨습니다.
+심판은 격리 환경에서 `npm run bundle`을 실행합니다. 그 환경 규칙에 맞추어 step 12 점검(`runStepTwelveChecks`)을 다음처럼 바꿨습니다. 구조 정리 뒤 이 점검은 제출 묶음이 아니라 `npm run ops:record`(`runLiveChecks`)가 씁니다.
 
 1. **GET·HEAD만** (`6b59771`): 11단계 점검 사슬을 다시 쓰던 step 12가 로그인 없는 `PUT /api/admin/notices/:id`·`POST /api/notes/:id/restore` 쓰기 요청을 보냈습니다. step 12 전용 점검을 만들어 공개 HTTPS 주소에 GET·HEAD만 보내고, 쓰기·로그인·기기 서명·엔진이 필요한 점검은 요청 없이 `observed: "not_run"`으로 바꿨습니다.
 2. **허용 모듈만**: 제출 묶음이 불러오는 파일은 `node:fs`·`node:path`·`node:url`·`node:child_process`·`node:crypto`만 import합니다(프로젝트 안의 `src/ops-catalog.mjs`는 import가 없는 데이터). 가짜 토큰도 Buffer·전역 crypto 없이 만듭니다.
@@ -338,7 +345,7 @@
 
 ### 확인 순서
 
-1. `npm run bundle` → `npm run ops:record`: 기록표의 실행 행 요청 ID가 `artifacts/submission.json`의 observed와 같은지 봅니다.
+1. `npm run bundle`: 18개 모두 `not_run`인지 봅니다. `npm run ops:record`: 실측 기록표가 만들어지고, 실행 행의 요청 ID를 Vercel Logs의 `[res12]`에서 찾을 수 있는지 봅니다.
 2. 배포에서 로그인 → 기기 승인 → 자료실 아래 「탈환 작전실」 → 「작전실 점검 실행」. 표의 요청 ID 몇 개를 Vercel Logs의 `[res12]`에서 찾아 같은 requestId·attackId·status인지 봅니다.
 3. 로컬 시험(심판 판정 아님): `npm run test:ops`, `npm run test:bundle`.
 
