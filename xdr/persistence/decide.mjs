@@ -205,7 +205,17 @@ function matches(alert, condition, depth = 0) {
   return regexOf(condition.regex, condition.ignoreCase === true).test(value.slice(0, TEXT_LIMIT));
 }
 
-// 수준 칸이 없거나 숫자가 아니면 4 이하(normal)로 봅니다. 정수가 아닌 수준은 가까운 아래 구간으로 봅니다.
+// 숫자 칸은 그대로, 글자 칸은 앞뒤 공백을 뺀 뒤 정수나 소수로 온전히 읽힐 때만("12", " 10 ", "7.5") 숫자로 바꿉니다.
+// "abc", "", "12abc"처럼 온전히 읽히지 않으면 NaN입니다.
+const NUMBER_TEXT = /^[+-]?\d{1,9}(?:\.\d{1,9})?$/u;
+function toNumber(value) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : NaN;
+  if (typeof value !== 'string' || value.length > 64) return NaN;
+  const trimmed = value.trim();
+  return NUMBER_TEXT.test(trimmed) ? Number(trimmed) : NaN;
+}
+
+// 수준 칸이 없거나 숫자로 읽히지 않으면 4 이하(normal)로 봅니다. 정수가 아닌 수준은 가까운 아래 구간으로 봅니다.
 function levelBand(level) {
   if (!Number.isFinite(level)) return 'normal';
   const found = LEVEL_BANDS.bands.find(item => (item.min === undefined || level >= item.min) && (item.max === undefined || level <= item.max));
@@ -218,7 +228,7 @@ const answer = (confidence, reason) => ({ action: actionOf(confidence), confiden
 export function decide(alert) {
   try {
     if (!isObject(alert)) return answer(CONFIDENCE.invalid, 'invalid-alert');
-    const level = get(alert, 'rule.level');
+    const level = toNumber(get(alert, 'rule.level'));
     const band = levelBand(level);
     const mitre = get(alert, 'rule.mitre');
     const persistent = PERSISTENCE_MITRE.some(code => hasMitre(mitre, code));
