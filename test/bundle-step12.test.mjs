@@ -1,12 +1,13 @@
 // 12단계: 심판은 격리 환경에서 npm run bundle을 실행합니다. 그 환경에서는 node:fs·node:path·node:url·node:child_process·
 // node:crypto만 쓸 수 있고, 요청은 공개 HTTPS 주소로 보내는 GET·HEAD만 됩니다.
-// 이 시험은 fetch를 가짜로 바꿔 step 12 점검이 GET·HEAD 외의 요청을 하나라도 보내면 실패합니다.
+// 12단계 실험: step 12 점검을 시작 틀 모양으로 줄였습니다. fetch를 가짜로 바꿔 요청이 정확히 두 개(GET /api/notes,
+// GET /api/notes/<B 시험 메모 id>)이고 헤더 없이 URL 객체로 나가는지, 나머지 16개는 not_run인지 확인합니다.
 // 로컬 시험이며 심판 판정이 아닙니다.
 import assert from 'node:assert/strict';
-import { createHash as realCreateHash, randomUUID as realRandomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { mock, test } from 'node:test';
 import { runAttackChecks } from '../src/attack-check.mjs';
+import { OPS_CATALOG } from '../src/ops-catalog.mjs';
 
 const ALLOWED_MODULES = ['node:fs', 'node:path', 'node:url', 'node:child_process', 'node:crypto'];
 const config = JSON.parse(readFileSync(new URL('../aleph.config.json', import.meta.url), 'utf8'));
@@ -18,7 +19,8 @@ async function runWithFakeFetch(stepConfig, run = runAttackChecks, { fail = fals
   const originalBuffer = globalThis.Buffer;
   const cryptoDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
   globalThis.fetch = async (url, init = {}) => {
-    calls.push({ url: String(url), method: (init.method ?? 'GET').toUpperCase(), hasBody: init.body !== undefined, headers: { ...(init.headers ?? {}) } });
+    calls.push({ url: String(url), isUrlObject: url instanceof URL, method: (init.method ?? 'GET').toUpperCase(), hasBody: init.body !== undefined,
+      hasHeaders: init.headers !== undefined, initKeys: Object.keys(init).sort() });
     // fail이면 요청이 나가지 못한 것처럼 예외를 던집니다.
     if (fail) throw new TypeError('fetch failed');
     return { ok: false, status: 401, json: async () => ({ error: 'LOGIN_REQUIRED' }) };
@@ -35,27 +37,75 @@ async function runWithFakeFetch(stepConfig, run = runAttackChecks, { fail = fals
   }
 }
 
-test('step 12 점검은 공개 HTTPS 주소에 GET·HEAD만 보낸다', async () => {
+const B_TEST_NOTE_ID = 'b4b4b4b4-0000-4000-8000-00000000b004';
+const SENT = ['anonymous_list_notes', 'anonymous_read_other_note'];
+const EXPERIMENT_NOTE = '(12단계 실험: 시작 틀 모양으로 줄여 요청하지 않음)';
+
+test('12단계 실험: 요청은 정확히 두 개, 이 순서로, 헤더 없이 URL 객체로 보낸다', async () => {
   assert.equal(config.step, 12);
   const { attempts, calls } = await runWithFakeFetch(config);
-  assert.ok(calls.length > 0, '읽기 요청을 하나 이상 보내야 함');
+  const app = new URL(config.publicAppUrl);
+  assert.deepEqual(calls.map(call => call.url), [new URL('/api/notes', app).href, new URL(`/api/notes/${B_TEST_NOTE_ID}`, app).href]);
   for (const call of calls) {
-    assert.ok(['GET', 'HEAD'].includes(call.method), `${call.method} ${call.url}`);
-    assert.equal(call.hasBody, false, `본문을 보내면 안 됨: ${call.url}`);
-    assert.equal(new URL(call.url).protocol, 'https:');
-    assert.ok([new URL(config.publicAppUrl).origin, new URL(config.originalApiUrl).origin].includes(new URL(call.url).origin), call.url);
+    assert.equal(call.isUrlObject, true, `URL 객체를 그대로 넘김: ${call.url}`);
+    assert.equal(call.method, 'GET');
+    assert.equal(call.hasBody, false);
+    assert.equal(call.hasHeaders, false, `헤더를 붙이지 않음: ${call.url}`);
+    assert.deepEqual(call.initKeys, ['redirect', 'signal'], '시작 틀과 같은 fetch 옵션만');
   }
-  assert.ok(attempts.length >= 1 && attempts.length <= 20);
-  assert.equal(new Set(attempts.map(item => item.attackId)).size, attempts.length);
+  assert.equal(attempts.length, 18, '점검 개수 그대로');
+  assert.deepEqual(attempts.map(item => item.attackId), OPS_CATALOG.filter(row => row.bundle).map(row => row.attackId), 'attackId·순서 그대로');
   for (const item of attempts) {
     assert.deepEqual(Object.keys(item).sort(), ['attackId', 'expected', 'observed']);
     assert.ok(item.expected.trim() && item.expected.length <= 300 && item.observed.length <= 300);
   }
-  for (const id of WRITE_CHECKS) {
-    assert.equal(attempts.find(item => item.attackId === id)?.observed, 'not_run', id);
+  process.stdout.write(`# step 12 실험 요청 ${calls.length}건: ${calls.map(call => new URL(call.url).pathname).join(', ')}\n`);
+});
+
+test('12단계 실험: observed는 "GET <경로> → HTTP <받은 상태>[ <error>]"이고, 나머지 16개는 not_run이다', async () => {
+  const STATUS = { '/api/notes': 401, [`/api/notes/${B_TEST_NOTE_ID}`]: 404 };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async url => {
+    const status = STATUS[new URL(url).pathname] ?? 500;
+    return { ok: false, status, json: async () => (status === 401 ? { error: 'LOGIN_REQUIRED' } : {}) };
+  };
+  try {
+    const attempts = await runAttackChecks(config);
+    const byId = Object.fromEntries(attempts.map(item => [item.attackId, item]));
+    assert.equal(byId.anonymous_list_notes.observed, 'GET /api/notes → HTTP 401 LOGIN_REQUIRED');
+    assert.equal(byId.anonymous_read_other_note.observed, `GET /api/notes/${B_TEST_NOTE_ID} → HTTP 404`, 'error가 없으면 적지 않음');
+    for (const item of attempts.filter(a => !SENT.includes(a.attackId))) {
+      assert.equal(item.observed, 'not_run', item.attackId);
+      assert.ok(item.expected.endsWith(EXPERIMENT_NOTE), `${item.attackId}: expected에 실험 이유`);
+    }
+    assert.equal(attempts.filter(item => item.observed === 'not_run').length, 16);
+    assert.equal(/Bearer|eyJ|requestId|checkedAt/u.test(attempts.map(a => a.observed).join(' ')), false, '토큰·요청 ID를 적지 않음');
+    process.stdout.write(`# observed: ${byId.anonymous_list_notes.observed} | ${byId.anonymous_read_other_note.observed}\n`);
+  } finally {
+    globalThis.fetch = originalFetch;
   }
-  // 요청한 메서드 목록을 남겨 둡니다(시험 출력에서 확인용).
-  process.stdout.write(`# step 12 요청 ${calls.length}건: ${[...new Set(calls.map(call => call.method))].join(', ')}\n`);
+});
+
+test('12단계 실험: fetch가 예외를 던지면 그 점검의 observed는 정확히 not_run이다', async () => {
+  const { attempts, calls } = await runWithFakeFetch(config, runAttackChecks, { fail: true });
+  assert.equal(calls.length, 2, '요청은 두 번 시도했지만 나가지 못함');
+  assert.equal(attempts.length, 18);
+  for (const item of attempts) assert.equal(item.observed, 'not_run', item.attackId);
+});
+
+test('12단계 실험: step 12 점검은 node:crypto를 부르지 않는다', async () => {
+  const used = [];
+  const trap = name => () => { used.push(name); throw new Error(`${name} 호출됨`); };
+  const cryptoMock = mock.module('node:crypto', { namedExports: { randomUUID: trap('randomUUID'), createHash: trap('createHash') } });
+  try {
+    const { runAttackChecks: runNoCrypto } = await import('../src/attack-check.mjs?no-crypto');
+    const { attempts, calls } = await runWithFakeFetch(config, runNoCrypto);
+    assert.deepEqual(used, [], 'randomUUID·createHash를 부르지 않음');
+    assert.equal(calls.length, 2);
+    assert.equal(attempts.length, 18);
+  } finally {
+    cryptoMock.restore();
+  }
 });
 
 test('npm run bundle이 불러오는 파일은 허용된 node: 모듈만 import한다', () => {
@@ -78,139 +128,6 @@ test('npm run bundle이 불러오는 파일은 허용된 node: 모듈만 import�
     }
   }
   assert.ok([...seen].some(href => href.endsWith('/src/ops-catalog.mjs')), '시험 목록 파일도 검사함');
-});
-
-test('node:crypto가 randomUUID와 sha256 hex만 될 때도 step 12 점검이 끝까지 돈다', async () => {
-  // 심판 격리 환경처럼 createHash는 sha256·문자열 입력·digest('hex')만 허용하는 가짜로 바꿉니다.
-  const used = { algorithms: [], inputs: [], formats: [] };
-  const fakeCreateHash = algorithm => {
-    used.algorithms.push(algorithm);
-    if (algorithm !== 'sha256') throw new Error('hash_algorithm_unsupported');
-    const real = realCreateHash('sha256');
-    const hash = {
-      update(input) {
-        used.inputs.push(typeof input);
-        if (typeof input !== 'string') throw new Error('hash_input_unsupported');
-        real.update(input);
-        return hash;
-      },
-      digest(format) {
-        used.formats.push(format);
-        if (format !== 'hex') throw new Error('hash_encoding_unsupported');
-        return real.digest('hex');
-      },
-    };
-    return hash;
-  };
-  const cryptoMock = mock.module('node:crypto', { namedExports: { randomUUID: realRandomUUID, createHash: fakeCreateHash } });
-  try {
-    // 이미 불러온 모듈 대신 가짜 node:crypto로 새로 불러옵니다.
-    const { runAttackChecks: runHexOnly } = await import('../src/attack-check.mjs?hex-only');
-    const { attempts, calls } = await runWithFakeFetch(config, runHexOnly);
-    assert.ok(used.formats.length > 0, 'step 12 가짜 토큰이 sha256을 써야 함');
-    assert.deepEqual([...new Set(used.formats)], ['hex']);
-    assert.deepEqual([...new Set(used.algorithms)], ['sha256']);
-    assert.deepEqual([...new Set(used.inputs)], ['string']);
-    assert.ok(calls.every(call => ['GET', 'HEAD'].includes(call.method)));
-    assert.ok(attempts.length >= 1 && attempts.length <= 20);
-    process.stdout.write(`# hex 전용 node:crypto: createHash ${used.algorithms.length}회, digest 형식 ${[...new Set(used.formats)].join(',')}, 요청 ${calls.length}건
-`);
-  } finally {
-    cryptoMock.restore();
-  }
-});
-
-// observed 형식: "<메서드> <쿼리 포함 전체 주소> → HTTP <실제 받은 상태>[ <error>] · requestId=<우리 ID> · checkedAt=<ISO 시각>"
-const OBSERVED = /^(GET|HEAD) (https:\/\/\S+) → HTTP (\d{3})(?: ([A-Za-z0-9_.-]{1,60}))?(?: · requestId=(\S+))?(?: · checkedAt=(\S+))?$/u;
-const parse = observed => {
-  const match = OBSERVED.exec(observed);
-  return match ? { method: match[1], url: match[2], status: Number(match[3]), error: match[4] ?? null,
-    requestId: match[5] ?? null, checkedAt: match[6] ?? null } : null;
-};
-
-test('요청한 점검마다 요청을 한 번 보내고, X-Request-Id·X-Aleph-Attack-Id가 observed와 같다', async () => {
-  const { attempts, calls } = await runWithFakeFetch(config);
-  const sent = attempts.filter(item => item.observed !== 'not_run');
-  assert.equal(sent.length, 8, '실제로 요청하는 점검 8개');
-  assert.equal(calls.length, sent.length, '점검 하나당 요청 한 번');
-  for (const item of sent) {
-    const mine = calls.filter(call => call.headers['X-Aleph-Attack-Id'] === item.attackId);
-    assert.equal(mine.length, 1, `${item.attackId}: 요청 ${mine.length}번`);
-    const [call] = mine;
-    const parsed = parse(item.observed);
-    assert.ok(parsed, `${item.attackId}: 형식 ${item.observed}`);
-    assert.ok(item.observed.startsWith(`${call.method} ${call.url} → HTTP `), '메서드와 전체 주소를 맨 앞에');
-    assert.ok(item.observed.length <= 300);
-    assert.equal(parsed.requestId, call.headers['X-Request-Id'], item.attackId);
-    assert.match(call.headers['X-Request-Id'], /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u);
-    assert.equal(parsed.status, 401);
-    assert.ok(!Number.isNaN(Date.parse(parsed.checkedAt)));
-    assert.equal(/Bearer|eyJ|responseIds/u.test(item.observed), false, '토큰·responseIds를 적지 않음');
-  }
-  assert.equal(new Set(calls.map(call => call.headers['X-Request-Id'])).size, calls.length, '요청 ID는 모두 다름');
-  const query = attempts.find(item => item.attackId === 'query_appended_note_read');
-  assert.match(parse(query.observed).url, /\?x=1$/u);
-  const forged = calls.find(call => call.headers['X-Aleph-Attack-Id'] === 'forged_token_read_other_note');
-  assert.match(forged.headers.Authorization, /^Bearer /u, '가짜 토큰 헤더는 그대로');
-  process.stdout.write(`# observed 예: ${attempts[1].observed}\n`);
-});
-
-test('fetch가 예외를 던지면 그 점검의 observed는 not_run이다', async () => {
-  const { attempts, calls } = await runWithFakeFetch(config, runAttackChecks, { fail: true });
-  assert.equal(calls.length, 8, '요청은 시도했지만 나가지 못함');
-  assert.equal(attempts.length, 18);
-  for (const item of attempts) assert.equal(item.observed, 'not_run', item.attackId);
-});
-
-test('observed는 "<메서드> https://…"로 시작하고 HTTP 상태는 실제로 받은 값이며 300자 이하, 넘치면 checkedAt·requestId 순서로 뺀다', async () => {
-  // 점검마다 다른 상태를 돌려줘, observed의 숫자가 실제로 받은 response.status인지 확인합니다.
-  const STATUS = { original_api_direct_read: 403, anonymous_list_notes: 401, anonymous_read_other_note: 404,
-    forged_token_read_other_note: 401, query_appended_note_read: 400, anonymous_list_notices: 401,
-    anonymous_device_status: 429, public_data_json_head: 404 };
-  const originalFetch = globalThis.fetch;
-  const calls = [];
-  globalThis.fetch = async (url, init = {}) => {
-    const attackId = init.headers['X-Aleph-Attack-Id'];
-    calls.push({ url: String(url), method: init.method, headers: { ...init.headers } });
-    const status = STATUS[attackId] ?? 500;
-    return { ok: false, status, headers: new Headers({ 'X-Vercel-Id': 'icn1::fake' }), json: async () => ({ error: `CODE_${status}` }) };
-  };
-  try {
-    const attempts = await runAttackChecks(config);
-    const sent = attempts.filter(item => item.observed !== 'not_run');
-    assert.equal(sent.length, 8);
-    for (const item of sent) {
-      const call = calls.find(c => c.headers['X-Aleph-Attack-Id'] === item.attackId);
-      const parsed = parse(item.observed);
-      assert.match(item.observed, /^(GET|HEAD) https:\/\//u, item.attackId);
-      assert.match(item.observed, / → HTTP \d{3}/u);
-      assert.equal(parsed.status, STATUS[item.attackId], `${item.attackId}: 받은 상태 그대로`);
-      assert.equal(parsed.url, call.url);
-      assert.equal(parsed.error, call.method === 'HEAD' ? null : `CODE_${STATUS[item.attackId]}`, 'HEAD는 본문을 읽지 않음');
-      assert.ok(item.observed.length <= 300, `${item.attackId}: ${item.observed.length}자`);
-    }
-    // 주소가 길어지면 checkedAt → requestId 순서로 빠지고, 메서드·주소·HTTP 상태는 그대로 남습니다.
-    const base = config.originalApiUrl.replace(/\/[^/]+$/u, '');
-    const stages = [];
-    for (const extra of [40, 150, 200]) {
-      const longUrl = `${base}/${'v'.repeat(extra)}`;
-      const item = (await runAttackChecks({ ...config, originalApiUrl: longUrl })).find(a => a.attackId === 'original_api_direct_read');
-      const parsed = parse(item.observed);
-      assert.ok(item.observed.length <= 300, `${extra}: ${item.observed.length}자`);
-      assert.equal(parsed.url, longUrl);
-      assert.equal(parsed.status, 403);
-      if (!parsed.requestId) assert.equal(parsed.checkedAt, null, 'requestId가 빠졌으면 checkedAt도 빠져 있어야 함(빼는 순서)');
-      stages.push(`${parsed.requestId ? 'requestId' : '-'}/${parsed.checkedAt ? 'checkedAt' : '-'}`);
-    }
-    assert.deepEqual(stages, ['requestId/checkedAt', 'requestId/-', '-/-']);
-    // 메서드·주소·HTTP 상태만으로도 300자를 넘는 주소는 자르지 않고 그대로 둡니다(알려야 할 예외).
-    const tooLong = `${base}/${'v'.repeat(260)}`;
-    const over = (await runAttackChecks({ ...config, originalApiUrl: tooLong })).find(a => a.attackId === 'original_api_direct_read');
-    assert.equal(over.observed, `GET ${tooLong} → HTTP 403 CODE_403`);
-    process.stdout.write(`# 길이별 남은 항목: ${stages.join(' → ')} · 예외: 주소 ${tooLong.length}자이면 observed ${over.observed.length}자(자르지 않음)\n`);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
 });
 
 test('서버는 요청의 UUID x-request-id를 응답 헤더로 돌려주고, 없거나 이상하면 새 UUID를 준다', async () => {
