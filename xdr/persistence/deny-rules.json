@@ -1,0 +1,85 @@
+{
+  "moduleKey": "persistence",
+  "note": "판정기 요청 계약에 PC 이름·IP 칸이 없어 src/decider.mjs에는 연결하지 않음. 판정기 앞단의 추가 확인 단계로 쓰는 격리 목록. 시험 경보가 모두 한 PC에서 나와 PC 전체가 아니라 PC+출발 주소 단위로 격리함",
+  "schema": "aleph.xdr.deny-rules.v1",
+  "rules": [
+    {
+      "target": "agent+srcip",
+      "agent": "choi-bujang-pc",
+      "srcip": "203.0.113.12",
+      "reason": "unsigned-new-service · level 12(attack) | unfamiliar-scheduled-task · level 12(attack)",
+      "evidenceAlertIds": [
+        "ps-01",
+        "ps-02"
+      ],
+      "createdAt": "2026-09-27T00:18:04.000Z",
+      "expiresAt": "2026-09-27T01:19:12.000Z"
+    },
+    {
+      "target": "agent+srcip",
+      "agent": "choi-bujang-pc",
+      "srcip": "198.51.100.12",
+      "reason": "startup-folder-change · level 11(attack)",
+      "evidenceAlertIds": [
+        "ps-03"
+      ],
+      "createdAt": "2026-09-27T01:06:28.000Z",
+      "expiresAt": "2026-09-27T02:06:28.000Z"
+    },
+    {
+      "target": "agent+srcip",
+      "agent": "choi-bujang-pc",
+      "srcip": "192.0.2.12",
+      "reason": "unsigned-new-service · level 12(attack)",
+      "evidenceAlertIds": [
+        "ps-04"
+      ],
+      "createdAt": "2026-09-27T01:22:03.000Z",
+      "expiresAt": "2026-09-27T02:22:03.000Z"
+    },
+    {
+      "target": "agent+srcip",
+      "agent": "choi-bujang-pc",
+      "srcip": "203.0.113.19",
+      "reason": "unfamiliar-scheduled-task · level 10(attack)",
+      "evidenceAlertIds": [
+        "ps-05"
+      ],
+      "createdAt": "2026-09-27T02:09:17.000Z",
+      "expiresAt": "2026-09-27T03:09:17.000Z"
+    },
+    {
+      "target": "agent+srcip",
+      "agent": "choi-bujang-pc",
+      "srcip": "198.51.100.19",
+      "reason": "unsigned-new-service · level 12(attack)",
+      "evidenceAlertIds": [
+        "ps-06"
+      ],
+      "createdAt": "2026-09-27T04:07:45.000Z",
+      "expiresAt": "2026-09-27T05:07:45.000Z"
+    },
+    {
+      "target": "agent+srcip",
+      "agent": "choi-bujang-pc",
+      "srcip": "192.0.2.19",
+      "reason": "unsigned-new-service+unfamiliar-scheduled-task+startup-folder-change · level 11(attack)",
+      "evidenceAlertIds": [
+        "ps-07"
+      ],
+      "createdAt": "2026-09-27T05:14:08.000Z",
+      "expiresAt": "2026-09-27T06:14:08.000Z"
+    },
+    {
+      "target": "agent+srcip",
+      "agent": "choi-bujang-pc",
+      "srcip": "203.0.113.33",
+      "reason": "unsigned-new-service · level 12(attack)",
+      "evidenceAlertIds": [
+        "ps-08"
+      ],
+      "createdAt": "2026-09-27T06:28:31.000Z",
+      "expiresAt": "2026-09-27T07:28:31.000Z"
+    }
+  ]
+}
