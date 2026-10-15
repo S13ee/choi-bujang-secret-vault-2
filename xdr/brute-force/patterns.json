@@ -1,0 +1,64 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "brute-force",
+  "source": "MITRE ATT&CK T1110 (Brute Force, 무차별 대입)",
+  "conditionFormat": "all: 모두 참, any: 하나라도 참, not: 거짓이어야 함. field는 경보 원본 칸 경로. includes: 배열에 값이 있음, number: 글자를 정수로 바꾼 값(정수 글자가 아니면 거짓), splitCount: 쉼표로 나눈 빈칸 아닌 항목 개수, contains: 글자 포함, regex: 정규식 일치, pattern: 다른 패턴 이름에 맞음. 경보 id는 조건에 쓰지 않습니다.",
+  "patterns": [
+    {
+      "name": "rapid-failures-same-source",
+      "technique": "T1110.001",
+      "conditions": {
+        "text": "rule.mitre에 T1110이 있고, 실패 건수(data.count를 숫자로)가 20 이상이다.",
+        "match": { "all": [
+          { "field": "rule.mitre", "includes": "T1110" },
+          { "field": "data.count", "number": { "gte": 20 } }
+        ] }
+      },
+      "strength": "strong",
+      "evidence": "MITRE ATT&CK T1110.001(Password Guessing): 같은 주소에서 짧은 시간에 로그인 실패가 많이 쌓임."
+    },
+    {
+      "name": "password-spraying",
+      "technique": "T1110.003",
+      "conditions": {
+        "text": "rule.mitre에 T1110이 있고, data.accounts의 계정 수가 5 이상이거나, 설명에 \"같은 비밀번호\"가 있고 계정이 여러 개라는 표현(\"여러 계정\", \"계정 N개\")이 있다.",
+        "match": { "all": [
+          { "field": "rule.mitre", "includes": "T1110" },
+          { "any": [
+            { "field": "data.accounts", "splitCount": { "gte": 5 } },
+            { "all": [
+              { "field": "rule.description", "contains": "같은 비밀번호" },
+              { "field": "rule.description", "regex": "여러 계정|계정 \\d+개" }
+            ] }
+          ] }
+        ] }
+      },
+      "strength": "strong",
+      "evidence": "MITRE ATT&CK T1110.003(Password Spraying): 여러 계정에 같은 비밀번호를 대입함."
+    },
+    {
+      "name": "low-volume-failures",
+      "technique": "T1110.001",
+      "conditions": {
+        "text": "rule.mitre에 T1110이 있고, 실패 건수가 2 이상 20 미만이며, rapid-failures-same-source와 password-spraying에 맞지 않는다.",
+        "match": { "all": [
+          { "field": "rule.mitre", "includes": "T1110" },
+          { "field": "data.count", "number": { "gte": 2, "lt": 20 } },
+          { "not": { "pattern": "rapid-failures-same-source" } },
+          { "not": { "pattern": "password-spraying" } }
+        ] }
+      },
+      "strength": "weak",
+      "evidence": "MITRE ATT&CK T1110.001을 적은 건수에서 본 경우로, 단정하지 않고 알림만."
+    }
+  ],
+  "levelBands": {
+    "field": "rule.level",
+    "bands": [
+      { "band": "normal", "max": 3 },
+      { "band": "ambiguous", "min": 5, "max": 8 },
+      { "band": "attack", "min": 10 }
+    ],
+    "evidence": "Wazuh 규칙 수준 분류(낮은 수준은 성공·저우선 알림, 높은 수준은 반복 오류·중요 이벤트)"
+  }
+}
