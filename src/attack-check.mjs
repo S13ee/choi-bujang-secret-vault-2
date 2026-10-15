@@ -29,8 +29,7 @@ export async function runAttackChecks(config) {
   if (config.step === 10) return runStepTenChecks(app, config);
   if (config.step === 11) return runStepElevenChecks(app, config);
   // 12단계: 제출 묶음은 읽기 요청(GET·HEAD)만 보낼 수 있어 11단계 사슬을 다시 쓰지 않고 전용 점검을 씁니다.
-  // 12단계 실험: 시작 틀 모양으로 줄인 점검을 씁니다. 기존 runStepTwelveChecks는 지우지 않고 쓰지 않습니다.
-  if (config.step === 12) return runStepTwelveStarterShape(app);
+  if (config.step === 12) return runStepTwelveChecks(app, config);
   const response = await fetch(new URL('/data.json', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
   });
@@ -356,39 +355,6 @@ async function runStepTwelveChecks(app, config) {
       : run.auth === 'forged' ? { Authorization: `Bearer ${readOnlyForgedToken(config)}` } : {};
     out.push({ attackId: row.attackId, expected: row.expected,
       observed: url ? await tracedRequest(row.attackId, url, { method: run.method, headers }) : NOT_RUN });
-  }
-  return out;
-}
-
-// 12단계 실험: 시작 틀(runAttackChecks)과 같은 요청 방식으로 줄였습니다. URL 객체를 그대로 넘기고 헤더는 붙이지 않으며,
-// 요청은 아래 두 개만 이 순서로 보냅니다. node:crypto는 쓰지 않습니다. 나머지 점검은 요청하지 않고 observed를 "not_run"으로 둡니다.
-// observed: "<메서드> <경로> → HTTP <실제 받은 상태>[ <error>]". fetch가 예외를 던지면 정확히 "not_run"입니다.
-const STARTER_SHAPE_REQUESTS = {
-  anonymous_list_notes: '/api/notes',
-  anonymous_read_other_note: `/api/notes/${B_TEST_NOTE_ID}`,
-};
-async function runStepTwelveStarterShape(app) {
-  const out = [];
-  for (const row of OPS_CATALOG.filter(item => item.bundle)) {
-    const path = STARTER_SHAPE_REQUESTS[row.attackId];
-    if (!path) {
-      out.push({ attackId: row.attackId, expected: `${row.expected} (12단계 실험: 시작 틀 모양으로 줄여 요청하지 않음)`, observed: NOT_RUN });
-      continue;
-    }
-    let response;
-    try {
-      response = await fetch(new URL(path, app), { redirect: 'error', signal: AbortSignal.timeout(10000) });
-    } catch {
-      out.push({ attackId: row.attackId, expected: row.expected, observed: NOT_RUN });
-      continue;
-    }
-    let error = null;
-    try {
-      const data = await response.json();
-      if (typeof data?.error === 'string' && SAFE_ERROR.test(data.error)) error = data.error;
-    } catch { /* JSON이 아니면 error를 적지 않습니다. */ }
-    out.push({ attackId: row.attackId, expected: row.expected,
-      observed: `GET ${path} → HTTP ${response.status}${error ? ` ${error}` : ''}` });
   }
   return out;
 }
