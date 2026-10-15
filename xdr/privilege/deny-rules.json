@@ -1,0 +1,104 @@
+{
+  "moduleKey": "privilege",
+  "note": "판정기 요청 계약에 계정 이름·IP 칸이 없어 src/decider.mjs에는 연결하지 않음. 판정기 앞단의 추가 확인 단계로 쓰는 세션 회수 목록. 공격 계정이 정상 접속에도 쓰여 계정 전체가 아니라 계정+출발 주소 단위로 회수함. 경보 설명에 여러 계정이 나와도 경보에 이름이 적힌 계정만 규칙으로 만듦",
+  "schema": "aleph.xdr.deny-rules.v1",
+  "rules": [
+    {
+      "target": "srcuser+srcip",
+      "srcuser": "user01",
+      "srcip": "203.0.113.11",
+      "action": "revoke-session",
+      "reason": "admin-group-add · level 12(attack) | first-seen-admin-command · level 12(attack)",
+      "evidenceAlertIds": [
+        "pv-01",
+        "pv-02"
+      ],
+      "createdAt": "2026-09-27T00:15:06.000Z",
+      "expiresAt": "2026-09-27T01:15:40.000Z"
+    },
+    {
+      "target": "srcuser+srcip",
+      "srcuser": "user02",
+      "srcip": "198.51.100.11",
+      "action": "revoke-session",
+      "reason": "first-seen-admin-command+off-hours-privilege-use · level 11(attack)",
+      "evidenceAlertIds": [
+        "pv-03"
+      ],
+      "createdAt": "2026-09-27T01:03:12.000Z",
+      "expiresAt": "2026-09-27T02:03:12.000Z"
+    },
+    {
+      "target": "srcuser+srcip",
+      "srcuser": "user03",
+      "srcip": "192.0.2.11",
+      "action": "revoke-session",
+      "reason": "admin-group-add+first-seen-admin-command · level 12(attack)",
+      "evidenceAlertIds": [
+        "pv-04"
+      ],
+      "createdAt": "2026-09-27T01:19:08.000Z",
+      "expiresAt": "2026-09-27T02:19:08.000Z"
+    },
+    {
+      "target": "srcuser+srcip",
+      "srcuser": "user04",
+      "srcip": "203.0.113.17",
+      "action": "revoke-session",
+      "reason": "admin-group-add · level 10(attack)",
+      "evidenceAlertIds": [
+        "pv-05"
+      ],
+      "createdAt": "2026-09-27T02:06:21.000Z",
+      "expiresAt": "2026-09-27T03:06:21.000Z"
+    },
+    {
+      "target": "srcuser+srcip",
+      "srcuser": "user05",
+      "srcip": "198.51.100.17",
+      "action": "revoke-session",
+      "reason": "first-seen-admin-command · level 12(attack)",
+      "evidenceAlertIds": [
+        "pv-06"
+      ],
+      "createdAt": "2026-09-27T04:08:02.000Z",
+      "expiresAt": "2026-09-27T05:08:02.000Z"
+    },
+    {
+      "target": "srcuser+srcip",
+      "srcuser": "user06",
+      "srcip": "192.0.2.17",
+      "action": "revoke-session",
+      "reason": "admin-group-add+off-hours-privilege-use · level 11(attack)",
+      "evidenceAlertIds": [
+        "pv-07"
+      ],
+      "createdAt": "2026-09-27T05:16:29.000Z",
+      "expiresAt": "2026-09-27T06:16:29.000Z"
+    },
+    {
+      "target": "srcuser+srcip",
+      "srcuser": "user07",
+      "srcip": "203.0.113.27",
+      "action": "revoke-session",
+      "reason": "first-seen-admin-command · level 12(attack)",
+      "evidenceAlertIds": [
+        "pv-08"
+      ],
+      "createdAt": "2026-09-27T06:02:18.000Z",
+      "expiresAt": "2026-09-27T07:02:18.000Z"
+    },
+    {
+      "target": "srcuser+srcip",
+      "srcuser": "user08",
+      "srcip": "198.51.100.27",
+      "action": "revoke-session",
+      "reason": "admin-group-add · level 10(attack)",
+      "evidenceAlertIds": [
+        "pv-09"
+      ],
+      "createdAt": "2026-09-27T06:33:07.000Z",
+      "expiresAt": "2026-09-27T07:33:07.000Z"
+    }
+  ]
+}
